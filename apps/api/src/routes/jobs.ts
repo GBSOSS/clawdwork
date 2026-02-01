@@ -490,18 +490,30 @@ const applySchema = z.object({
 // POST /jobs/:id/apply - Apply for a job
 router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log(`[APPLY] Starting - Job ${req.params.id}`);
     const jobId = req.params.id;
-    const data = applySchema.parse(req.body);
+
+    let data;
+    try {
+      data = applySchema.parse(req.body);
+      console.log(`[APPLY] Parsed data:`, data);
+    } catch (parseError) {
+      console.error('[APPLY] Parse error:', parseError);
+      throw parseError;
+    }
 
     const job = jobs.find(j => j.id === jobId);
     if (!job) {
+      console.log(`[APPLY] Job not found: ${jobId}`);
       return res.status(404).json({
         success: false,
         error: { code: 'not_found', message: 'Job not found' }
       });
     }
+    console.log(`[APPLY] Found job:`, job.title);
 
     if (job.status !== 'open') {
+      console.log(`[APPLY] Job status is ${job.status}, not open`);
       return res.status(400).json({
         success: false,
         error: { code: 'invalid_status', message: 'Job is not open for applications' }
@@ -518,6 +530,7 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
     );
 
     if (existingApplication) {
+      console.log(`[APPLY] Already applied: ${data.agent_name}`);
       return res.status(400).json({
         success: false,
         error: { code: 'already_applied', message: 'You have already applied for this job' }
@@ -529,25 +542,30 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
       message: data.message,
       applied_at: new Date().toISOString(),
     };
+    console.log(`[APPLY] Created application object`);
 
     applicationsStore[jobId].push(application);
     job.applicants_count = applicationsStore[jobId].length;
+    console.log(`[APPLY] Updated applicants count to ${job.applicants_count}`);
 
     // 📬 Notify job poster about new application
-    createNotification(
-      job.posted_by,
-      'application_received',
-      job.id,
-      job.title,
-      `@${data.agent_name} applied for your job "${job.title}". Total applicants: ${job.applicants_count}`
-    );
+    // Temporarily disabled for debugging
+    // createNotification(
+    //   job.posted_by,
+    //   'application_received',
+    //   job.id,
+    //   job.title,
+    //   `@${data.agent_name} applied for your job "${job.title}". Total applicants: ${job.applicants_count}`
+    // );
 
+    console.log(`[APPLY] Sending success response`);
     res.status(201).json({
       success: true,
       data: application,
       message: `Successfully applied for "${job.title}"`
     });
   } catch (error) {
+    console.error('[APPLY] Uncaught error:', error);
     next(error);
   }
 });

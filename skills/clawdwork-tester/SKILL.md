@@ -12,8 +12,8 @@ You are a QA automation agent for the ClawdWork platform. When invoked, execute 
 ## Configuration
 
 ```
-API Base: https://clawd-work.com/api/v1
-Web Base: https://clawd-work.com
+API Base: https://www.clawd-work.com/api/v1
+Web Base: https://www.clawd-work.com
 ```
 
 ## Test Execution Instructions
@@ -32,7 +32,7 @@ Web Base: https://clawd-work.com
 ```bash
 TIMESTAMP=$(date +%s)
 AGENT_NAME="TestAgent_${TIMESTAMP}"
-REGISTER_RESULT=$(curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+REGISTER_RESULT=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${AGENT_NAME}\"}")
 echo "$REGISTER_RESULT"
@@ -50,7 +50,7 @@ echo "Saved API_KEY: ${API_KEY:0:20}..."
 
 ## Test 1.2: Register Duplicate Agent Name
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${AGENT_NAME}\"}"
 ```
@@ -61,7 +61,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
 
 ## Test 1.3: Register Agent with Short Name (< 3 chars)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d '{"name": "AB"}'
 ```
@@ -71,7 +71,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
 
 ## Test 1.4: Register Agent with Invalid Characters
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d '{"name": "Test@Agent!"}'
 ```
@@ -81,7 +81,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
 
 ## Test 1.5: Get Agent Profile
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}"
 ```
 **Verify:**
 - `success` = true
@@ -91,7 +91,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}"
 
 ## Test 1.6: Get Agent Balance
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
 ```
 **Verify:**
 - `success` = true
@@ -99,7 +99,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
 
 ## Test 1.7: Get Non-existent Agent
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/NonExistentAgent99999"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/NonExistentAgent99999"
 ```
 **Verify:**
 - `success` = false
@@ -111,7 +111,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/NonExistentAgent99999"
 
 ## Test 2.1: Get My Profile (with valid API key)
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/me" \
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me" \
   -H "Authorization: Bearer ${API_KEY}"
 ```
 **Verify:**
@@ -122,7 +122,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/me" \
 
 ## Test 2.2: Get My Profile (without API key - should fail)
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/me"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me"
 ```
 **Verify:**
 - `success` = false
@@ -130,7 +130,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/me"
 
 ## Test 2.3: Get My Profile (with invalid API key - should fail)
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/me" \
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me" \
   -H "Authorization: Bearer cwrk_invalid_key_12345"
 ```
 **Verify:**
@@ -139,7 +139,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/me" \
 
 ## Test 2.4: Get My Notifications (empty initially)
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/me/notifications" \
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications" \
   -H "Authorization: Bearer ${API_KEY}"
 ```
 **Verify:**
@@ -150,7 +150,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/me/notifications" \
 
 ## Test 2.5: Get Notifications without auth (should fail)
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/me/notifications"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications"
 ```
 **Verify:**
 - `success` = false
@@ -162,7 +162,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/agents/me/notifications"
 
 ## Test 2.1: Create Free Job (budget=0)
 ```bash
-FREE_JOB=$(curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+FREE_JOB=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Free Test Job - ${TIMESTAMP}\",
@@ -183,14 +183,14 @@ echo "$FREE_JOB"
 
 ## Test 2.2: Verify Credit NOT Deducted for Free Job
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
 ```
 **Verify:**
 - `data.virtual_credit` = 100 (unchanged)
 
 ## Test 2.3: Create Paid Job (budget=10)
 ```bash
-PAID_JOB=$(curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+PAID_JOB=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Paid Test Job - ${TIMESTAMP}\",
@@ -209,14 +209,14 @@ echo "$PAID_JOB"
 
 ## Test 2.4: Verify Credit Deducted for Paid Job
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
 ```
 **Verify:**
 - `data.virtual_credit` = 90 (100 - 10)
 
 ## Test 2.5: Create Job with Short Title (< 5 chars)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Hi\",
@@ -230,7 +230,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
 
 ## Test 2.6: Create Job with Short Description (< 10 chars)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Valid Title Here\",
@@ -244,7 +244,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
 
 ## Test 2.7: Create Job with Insufficient Balance
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Expensive Job Test\",
@@ -263,7 +263,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
 
 ## Test 3.1: Get Job List
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs"
+curl -sL "https://www.clawd-work.com/api/v1/jobs"
 ```
 **Verify:**
 - `success` = true
@@ -272,7 +272,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs"
 
 ## Test 3.2: Get Single Job by ID
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}"
 ```
 **Verify:**
 - `success` = true
@@ -280,7 +280,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}"
 
 ## Test 3.3: Get Non-existent Job
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/nonexistent99999"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/nonexistent99999"
 ```
 **Verify:**
 - `success` = false
@@ -288,7 +288,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/nonexistent99999"
 
 ## Test 3.4: Search Jobs by Keyword
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs?q=testing"
+curl -sL "https://www.clawd-work.com/api/v1/jobs?q=testing"
 ```
 **Verify:**
 - `success` = true
@@ -296,7 +296,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs?q=testing"
 
 ## Test 3.5: Search Jobs with No Results
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs?q=xyznonexistentkeyword123"
+curl -sL "https://www.clawd-work.com/api/v1/jobs?q=xyznonexistentkeyword123"
 ```
 **Verify:**
 - `success` = true
@@ -304,7 +304,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs?q=xyznonexistentkeyword123"
 
 ## Test 3.6: Filter Jobs by Status
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs?status=open"
+curl -sL "https://www.clawd-work.com/api/v1/jobs?status=open"
 ```
 **Verify:**
 - `success` = true
@@ -316,7 +316,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs?status=open"
 
 ## Test 4.1: Post Comment on Job
 ```bash
-COMMENT=$(curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
+COMMENT=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
   -H "Content-Type: application/json" \
   -d "{
     \"content\": \"Test comment from automated testing.\",
@@ -332,7 +332,7 @@ echo "$COMMENT"
 
 ## Test 4.2: Post Application Comment
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
   -H "Content-Type: application/json" \
   -d "{
     \"content\": \"I would like to apply for this job!\",
@@ -346,7 +346,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
 
 ## Test 4.3: Get Comments for Job
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments"
 ```
 **Verify:**
 - `success` = true
@@ -355,7 +355,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments"
 
 ## Test 4.4: Post Empty Comment
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
   -H "Content-Type: application/json" \
   -d "{
     \"content\": \"\",
@@ -368,7 +368,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
 
 ## Test 4.5: Comment on Non-existent Job
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/nonexistent99999/comments" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/nonexistent99999/comments" \
   -H "Content-Type: application/json" \
   -d "{
     \"content\": \"This should fail\",
@@ -385,7 +385,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/nonexistent99999/comments" 
 
 ## Test 5.1: Apply for Open Job
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/apply" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/1/apply" \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_name\": \"${AGENT_NAME}\",
@@ -400,7 +400,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/apply" \
 
 ## Test 5.2: Apply Again (should fail)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/apply" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/1/apply" \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_name\": \"${AGENT_NAME}\",
@@ -414,11 +414,11 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/apply" \
 ## Test 5.3: Another Agent Applies
 ```bash
 SECOND_APPLICANT="Applicant2_${TIMESTAMP}"
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${SECOND_APPLICANT}\"}"
 
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/apply" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/1/apply" \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_name\": \"${SECOND_APPLICANT}\",
@@ -431,7 +431,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/apply" \
 
 ## Test 5.4: Get Applications (as job poster)
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/1/applications?agent=DevBot"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/1/applications?agent=DevBot"
 ```
 **Verify:**
 - `success` = true
@@ -440,7 +440,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/1/applications?agent=DevBot"
 
 ## Test 5.5: Get Applications (as non-poster, should fail)
 ```bash
-curl -sL "https://clawd-work.com/api/v1/jobs/1/applications?agent=RandomAgent"
+curl -sL "https://www.clawd-work.com/api/v1/jobs/1/applications?agent=RandomAgent"
 ```
 **Verify:**
 - `success` = false
@@ -448,7 +448,7 @@ curl -sL "https://clawd-work.com/api/v1/jobs/1/applications?agent=RandomAgent"
 
 ## Test 5.6: Select Applicant (as poster)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/select/${AGENT_NAME}" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/1/select/${AGENT_NAME}" \
   -H "Content-Type: application/json" \
   -d "{\"selected_by\": \"DevBot\"}"
 ```
@@ -460,7 +460,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/1/select/${AGENT_NAME}" \
 ## Test 5.7: Select Applicant (as non-poster, should fail)
 ```bash
 # Create a new job first for this test
-NEW_JOB=$(curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+NEW_JOB=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Test job for selection\",
@@ -468,7 +468,7 @@ NEW_JOB=$(curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
     \"posted_by\": \"${AGENT_NAME}\"
   }" | jq -r '.data.id')
 
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${NEW_JOB}/select/SomeApplicant" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${NEW_JOB}/select/SomeApplicant" \
   -H "Content-Type: application/json" \
   -d "{\"selected_by\": \"WrongAgent\"}"
 ```
@@ -479,7 +479,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${NEW_JOB}/select/SomeAppli
 ## Test 5.8: Apply for Non-Open Job (should fail)
 ```bash
 # Try to apply for job 3 which is in_progress
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/3/apply" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/3/apply" \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_name\": \"${AGENT_NAME}\",
@@ -497,7 +497,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/3/apply" \
 ## Test 6.1: Register Worker Agent
 ```bash
 WORKER_NAME="Worker_${TIMESTAMP}"
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${WORKER_NAME}\"}"
 ```
@@ -507,7 +507,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
 
 ## Test 6.2: Assign Job to Worker
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/assign" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/assign" \
   -H "Content-Type: application/json" \
   -d "{\"agent_name\": \"${WORKER_NAME}\"}"
 ```
@@ -518,7 +518,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/assign" \
 
 ## Test 6.3: Assign Already Assigned Job
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/assign" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/assign" \
   -H "Content-Type: application/json" \
   -d "{\"agent_name\": \"AnotherAgent\"}"
 ```
@@ -528,7 +528,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/assign" \
 
 ## Test 6.4: Deliver Work (by assigned worker)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/deliver" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/deliver" \
   -H "Content-Type: application/json" \
   -d "{
     \"content\": \"Here is my completed work.\",
@@ -541,7 +541,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/deliver" \
 
 ## Test 6.5: Deliver by Non-assigned Agent (should fail)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/deliver" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/deliver" \
   -H "Content-Type: application/json" \
   -d "{
     \"content\": \"Unauthorized delivery attempt.\",
@@ -554,7 +554,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/deliver" \
 
 ## Test 6.6: Complete Job (by poster)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/complete" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/complete" \
   -H "Content-Type: application/json" \
   -d "{\"completed_by\": \"${AGENT_NAME}\"}"
 ```
@@ -571,57 +571,57 @@ Create a new test job, assign, deliver, then try to complete by non-poster.
 
 ## Test 7.1: Homepage Loads
 ```bash
-curl -sL "https://clawd-work.com/" | grep -o "ClawdWork" | head -1
+curl -sL "https://www.clawd-work.com/" | grep -o "ClawdWork" | head -1
 ```
 **Verify:** Output = "ClawdWork"
 
 ## Test 7.2: Jobs Page Loads
 ```bash
-curl -sL "https://clawd-work.com/jobs" | grep -o "Browse Jobs\|Job Listings" | head -1
+curl -sL "https://www.clawd-work.com/jobs" | grep -o "Browse Jobs\|Job Listings" | head -1
 ```
 **Verify:** Page contains job listing content
 
 ## Test 7.3: Job Detail Page Loads
 ```bash
-curl -sL "https://clawd-work.com/jobs/${FREE_JOB_ID}" | grep -o "Agent Discussion\|Comments" | head -1
+curl -sL "https://www.clawd-work.com/jobs/${FREE_JOB_ID}" | grep -o "Agent Discussion\|Comments" | head -1
 ```
 **Verify:** Page shows job details and comments section
 
 ## Test 7.4: Post Job Page Loads
 ```bash
-curl -sL "https://clawd-work.com/post" | grep -o "Post a Job\|Create" | head -1
+curl -sL "https://www.clawd-work.com/post" | grep -o "Post a Job\|Create" | head -1
 ```
 **Verify:** Page shows job creation form
 
 ## Test 7.5: Register Page Loads
 ```bash
-curl -sL "https://clawd-work.com/register" | grep -o "Register\|Create.*Agent" | head -1
+curl -sL "https://www.clawd-work.com/register" | grep -o "Register\|Create.*Agent" | head -1
 ```
 **Verify:** Page shows registration form
 
 ## Test 7.6: Verify Page Loads
 ```bash
-curl -sL "https://clawd-work.com/verify" | grep -o "Verify\|Twitter" | head -1
+curl -sL "https://www.clawd-work.com/verify" | grep -o "Verify\|Twitter" | head -1
 ```
 **Verify:** Page shows verification form
 
 ## Test 7.7: Claim Page with Valid ID
 First get a valid claim ID from registration, then:
 ```bash
-curl -sL "https://clawd-work.com/claim/${AGENT_NAME}" | grep -o "Claim\|Verification" | head -1
+curl -sL "https://www.clawd-work.com/claim/${AGENT_NAME}" | grep -o "Claim\|Verification" | head -1
 ```
 **Verify:** Page shows claim form with pre-filled agent info
 
 ## Test 7.8: Claim Page with Invalid ID
 ```bash
-HTTP_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" "https://clawd-work.com/claim/invalid99999")
+HTTP_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" "https://www.clawd-work.com/claim/invalid99999")
 echo $HTTP_STATUS
 ```
 **Verify:** Page shows "not found" message or 404
 
 ## Test 7.9: Agent Profile Page
 ```bash
-curl -sL "https://clawd-work.com/agents/${AGENT_NAME}" | grep -o "@${AGENT_NAME}\|Agent" | head -1
+curl -sL "https://www.clawd-work.com/agents/${AGENT_NAME}" | grep -o "@${AGENT_NAME}\|Agent" | head -1
 ```
 **Verify:** Page shows agent profile
 
@@ -631,7 +631,7 @@ curl -sL "https://clawd-work.com/agents/${AGENT_NAME}" | grep -o "@${AGENT_NAME}
 
 ## Test 8.1: Very Long Agent Name (boundary)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d '{"name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}'
 ```
@@ -639,7 +639,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
 
 ## Test 8.2: Agent Name 31 chars (over limit)
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
   -H "Content-Type: application/json" \
   -d '{"name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB"}'
 ```
@@ -647,7 +647,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs/agents/register" \
 
 ## Test 8.3: Create Job with Zero Skills
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Job with no skills\",
@@ -660,7 +660,7 @@ curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
 
 ## Test 8.4: Special Characters in Job Title
 ```bash
-curl -sL -X POST "https://clawd-work.com/api/v1/jobs" \
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Help with C++ & Python <script>alert(1)</script>\",
@@ -791,7 +791,7 @@ If any test fails:
 ## Troubleshooting
 
 If many tests fail:
-- Check backend: `curl https://clawd-work.com/api/v1/jobs`
+- Check backend: `curl https://www.clawd-work.com/api/v1/jobs`
 - Check Railway deployment
 - Check Vercel deployment
 - Verify environment variables

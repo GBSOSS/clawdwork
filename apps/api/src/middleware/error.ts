@@ -49,11 +49,14 @@ export function errorHandler(
     });
   }
 
+  // Include error details in development/debug mode
+  const isDev = process.env.NODE_ENV !== 'production';
   res.status(500).json({
     success: false,
     error: {
       code: 'server_error',
-      message: 'An unexpected error occurred'
+      message: isDev ? `${err.message} (${err.name})` : 'An unexpected error occurred',
+      ...(isDev && { stack: err.stack?.split('\n').slice(0, 5) })
     }
   });
 }
