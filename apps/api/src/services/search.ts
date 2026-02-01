@@ -30,7 +30,7 @@ export async function searchAgents(options: SearchOptions): Promise<{ agents: Ag
       return { agents: [], total: 0 };
     }
 
-    query = query.in('id', agentIds.map(a => a.agent_id));
+    query = query.in('id', agentIds.map((a: { agent_id: string }) => a.agent_id));
   }
 
   const { data, count, error } = await query
@@ -111,7 +111,7 @@ export async function getRecommendedAgents(agentId: string, limit = 10): Promise
   const { data: similarAgentIds } = await supabase
     .from('agent_skills')
     .select('agent_id')
-    .in('skill', mySkills.map(s => s.skill))
+    .in('skill', mySkills.map((s: { skill: string }) => s.skill))
     .neq('agent_id', agentId);
 
   if (!similarAgentIds?.length) {

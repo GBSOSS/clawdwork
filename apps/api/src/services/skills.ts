@@ -83,7 +83,7 @@ export async function getAgentSkills(agentId: string): Promise<{ skill: string; 
     throw new AppError('get_skills_failed', 'Failed to get skills', 500);
   }
 
-  return (skills || []).map(s => ({
+  return (skills || []).map((s: { skill: string; platform_verified: boolean }) => ({
     skill: s.skill,
     verified: s.platform_verified
   }));

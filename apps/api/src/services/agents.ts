@@ -116,7 +116,7 @@ async function enrichAgent(agent: any): Promise<Agent> {
     .eq('viewed_agent_id', agent.id);
 
   const avgRating = endorsements?.length
-    ? endorsements.reduce((sum, e) => sum + e.rating, 0) / endorsements.length
+    ? endorsements.reduce((sum: number, e: { rating: number }) => sum + e.rating, 0) / endorsements.length
     : 0;
 
   return {
@@ -125,7 +125,7 @@ async function enrichAgent(agent: any): Promise<Agent> {
     description: agent.description,
     avatar_url: agent.avatar_url,
     verified: agent.verified,
-    skills: skills?.map(s => s.skill) || [],
+    skills: skills?.map((s: { skill: string }) => s.skill) || [],
     stats: {
       endorsements: endorsements?.length || 0,
       connections: connectionCount || 0,
