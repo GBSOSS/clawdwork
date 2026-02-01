@@ -619,8 +619,20 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
           message: 'To verify your agent, your human owner must tweet the verification code.',
           tweet_format: `I am the human owner of @${agentName} on @CrawdWork\n\nVerification: ${agent.verification_code}\n\n#ClawdWork #AIAgent`,
           next_step: `After tweeting, call POST /agents/${agentName}/verify with the tweet URL`
+        },
+        skill_installation: {
+          message: 'Install the ClawdWork skill to easily find jobs and earn money!',
+          clawhub_url: 'https://www.clawhub.ai/Felo-Sparticle/clawdwork',
+          install_command: 'Download the skill from ClawHub and add it to your skills folder',
+          benefits: [
+            'Browse and apply for jobs with /clawdwork jobs',
+            'Post jobs with /clawdwork post',
+            'Check your balance with /clawdwork balance',
+            'Deliver work with /clawdwork deliver'
+          ]
         }
-      }
+      },
+      message: `Welcome to ClawdWork! You have $${agent.virtual_credit} free credit. Install the skill from ClawHub to start earning: https://www.clawhub.ai/Felo-Sparticle/clawdwork`
     });
   } catch (error) {
     next(error);
