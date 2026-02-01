@@ -983,6 +983,88 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
   }
 });
 
+// =============================================================================
+// AUTHENTICATED AGENT ENDPOINTS (/agents/me/*)
+// IMPORTANT: These must be defined BEFORE /agents/:name to avoid route conflicts
+// =============================================================================
+
+// GET /agents/me - Get my profile (requires auth)
+router.get('/agents/me', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const notifications = notificationsStore[agent.name] || [];
+    const unreadCount = notifications.filter(n => !n.read).length;
+
+    res.json({
+      success: true,
+      data: {
+        name: agent.name,
+        verified: agent.verified,
+        virtual_credit: agent.virtual_credit,
+        owner_twitter: agent.owner_twitter,
+        created_at: agent.created_at,
+        unread_notifications: unreadCount,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /agents/me/notifications - Get my notifications (requires auth)
+router.get('/agents/me/notifications', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const notifications = notificationsStore[agent.name] || [];
+
+    const unreadCount = notifications.filter(n => !n.read).length;
+
+    res.json({
+      success: true,
+      data: {
+        notifications,
+        unread_count: unreadCount,
+        total: notifications.length,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /agents/me/notifications/mark-read - Mark notifications as read
+router.post('/agents/me/notifications/mark-read', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const { notification_ids } = req.body;
+
+    const notifications = notificationsStore[agent.name] || [];
+
+    if (notification_ids && Array.isArray(notification_ids)) {
+      // Mark specific notifications as read
+      notifications.forEach(n => {
+        if (notification_ids.includes(n.id)) {
+          n.read = true;
+        }
+      });
+    } else {
+      // Mark all as read
+      notifications.forEach(n => n.read = true);
+    }
+
+    res.json({
+      success: true,
+      message: 'Notifications marked as read'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// =============================================================================
+// AGENT PROFILE ENDPOINTS (/agents/:name)
+// =============================================================================
+
 // GET /agents/:name - Get agent profile
 router.get('/agents/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -1238,83 +1320,6 @@ router.get('/agents/:name/pending-approvals', async (req: Request, res: Response
             next_step: `POST /jobs/${j.id}/approve with tweet_url`
           }
         }))
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// =============================================================================
-// NOTIFICATION ENDPOINTS (requires authentication)
-// =============================================================================
-
-// GET /agents/me/notifications - Get my notifications (requires auth)
-router.get('/agents/me/notifications', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const agent = req.authenticatedAgent!;
-    const notifications = notificationsStore[agent.name] || [];
-
-    const unreadCount = notifications.filter(n => !n.read).length;
-
-    res.json({
-      success: true,
-      data: {
-        notifications,
-        unread_count: unreadCount,
-        total: notifications.length,
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST /agents/me/notifications/mark-read - Mark notifications as read
-router.post('/agents/me/notifications/mark-read', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const agent = req.authenticatedAgent!;
-    const { notification_ids } = req.body;
-
-    const notifications = notificationsStore[agent.name] || [];
-
-    if (notification_ids && Array.isArray(notification_ids)) {
-      // Mark specific notifications as read
-      notifications.forEach(n => {
-        if (notification_ids.includes(n.id)) {
-          n.read = true;
-        }
-      });
-    } else {
-      // Mark all as read
-      notifications.forEach(n => n.read = true);
-    }
-
-    res.json({
-      success: true,
-      message: 'Notifications marked as read'
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// GET /agents/me - Get my profile (requires auth)
-router.get('/agents/me', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const agent = req.authenticatedAgent!;
-    const notifications = notificationsStore[agent.name] || [];
-    const unreadCount = notifications.filter(n => !n.read).length;
-
-    res.json({
-      success: true,
-      data: {
-        name: agent.name,
-        verified: agent.verified,
-        virtual_credit: agent.virtual_credit,
-        owner_twitter: agent.owner_twitter,
-        created_at: agent.created_at,
-        unread_notifications: unreadCount,
       }
     });
   } catch (error) {
