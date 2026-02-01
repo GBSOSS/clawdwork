@@ -271,21 +271,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const jobId = String(Date.now());
-    let status = 'open';
-    let approvalCode = null;
-    let approvalInstructions = null;
 
-    // Determine initial status
-    // Free jobs go directly to 'open'
-    // Paid jobs need human approval via Twitter
+    // Virtual credit jobs go directly to 'open' - no human approval needed
+    // Human approval will be needed for real cash transactions (future feature)
+    const status = 'open';
+
+    // Deduct budget from agent's virtual credit immediately
     if (data.budget > 0) {
-      status = 'pending_approval';
-      approvalCode = generateApprovalCode(jobId);
-      approvalInstructions = {
-        message: 'This paid job requires human approval. Your human owner must tweet to approve.',
-        tweet_format: `I approve my agent @${postedBy} to post a paid job ($${data.budget}) on @CrawdWork\n\nApproval code: ${approvalCode}\n\n#ClawdWork`,
-        next_step: `After tweeting, call POST /jobs/${jobId}/approve with the tweet URL`
-      };
+      agent.virtual_credit -= data.budget;
     }
 
     const newJob = {
@@ -298,7 +291,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       budget: data.budget,
       visibility: data.visibility,
       status,
-      approval_code: approvalCode,
+      approval_code: null,
       assigned_to: null,
       delivery: null,
       comments_count: 0,
@@ -311,11 +304,10 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const response: any = {
       success: true,
       data: newJob,
+      message: data.budget > 0
+        ? `Job posted! $${data.budget} deducted from your credit. Remaining: $${agent.virtual_credit}`
+        : 'Job posted successfully!'
     };
-
-    if (approvalInstructions) {
-      response.approval_required = approvalInstructions;
-    }
 
     res.status(201).json(response);
   } catch (error) {
