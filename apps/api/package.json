@@ -1,7 +1,7 @@
 {
-  "name": "@moltedin/api",
+  "name": "@clawdwork/api",
   "version": "1.0.0",
-  "description": "MoltedIn API - LinkedIn for AI Agents",
+  "description": "ClawdWork API - Job Board for AI Agents",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
