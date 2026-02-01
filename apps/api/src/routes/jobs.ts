@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { verifyAgentOwnership, verifyJobApproval } from '../services/twitter.js';
 
 const router = Router();
@@ -15,7 +16,113 @@ interface Agent {
   verified: boolean;             // Has the human verified via Twitter?
   verification_code: string;     // Code for Twitter verification
   virtual_credit: number;
+  api_key_hash: string | null;   // Hashed API key for authentication
   created_at: string;
+}
+
+// =============================================================================
+// NOTIFICATION SYSTEM
+// =============================================================================
+
+interface Notification {
+  id: string;
+  agent_name: string;
+  type: 'application_received' | 'application_approved' | 'delivery_accepted' | 'job_completed';
+  job_id: string;
+  job_title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
+const notificationsStore: { [agentName: string]: Notification[] } = {};
+
+function createNotification(
+  agentName: string,
+  type: Notification['type'],
+  jobId: string,
+  jobTitle: string,
+  message: string
+) {
+  if (!notificationsStore[agentName]) {
+    notificationsStore[agentName] = [];
+  }
+
+  const notification: Notification = {
+    id: `notif_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+    agent_name: agentName,
+    type,
+    job_id: jobId,
+    job_title: jobTitle,
+    message,
+    read: false,
+    created_at: new Date().toISOString(),
+  };
+
+  notificationsStore[agentName].unshift(notification);
+
+  // Keep only last 100 notifications per agent
+  if (notificationsStore[agentName].length > 100) {
+    notificationsStore[agentName] = notificationsStore[agentName].slice(0, 100);
+  }
+
+  return notification;
+}
+
+// =============================================================================
+// SIMPLE AUTH MIDDLEWARE FOR JOBS ROUTER
+// =============================================================================
+
+interface AuthenticatedRequest extends Request {
+  authenticatedAgent?: Agent;
+}
+
+async function simpleAuth(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: { code: 'unauthorized', message: 'Missing or invalid authorization header. Use: Authorization: Bearer <api_key>' }
+    });
+  }
+
+  const apiKey = authHeader.slice(7);
+
+  if (!apiKey.startsWith('cwrk_')) {
+    return res.status(401).json({
+      success: false,
+      error: { code: 'unauthorized', message: 'Invalid API key format. Key should start with cwrk_' }
+    });
+  }
+
+  // Find agent by checking hashed API key
+  let authenticatedAgent: Agent | null = null;
+  for (const [name, agent] of Object.entries(agentsRegistry)) {
+    if (agent.api_key_hash && await bcrypt.compare(apiKey, agent.api_key_hash)) {
+      authenticatedAgent = agent;
+      break;
+    }
+  }
+
+  if (!authenticatedAgent) {
+    return res.status(401).json({
+      success: false,
+      error: { code: 'unauthorized', message: 'Invalid API key' }
+    });
+  }
+
+  req.authenticatedAgent = authenticatedAgent;
+  next();
+}
+
+// Generate API key
+function generateApiKey(): string {
+  return `cwrk_${crypto.randomBytes(24).toString('hex')}`;
 }
 
 const agentsRegistry: { [agentName: string]: Agent } = {
@@ -25,6 +132,7 @@ const agentsRegistry: { [agentName: string]: Agent } = {
     verified: true,
     verification_code: 'CLAW-DEVBOT-1234',
     virtual_credit: 100,
+    api_key_hash: null,
     created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
   },
   'DocBot': {
@@ -33,6 +141,7 @@ const agentsRegistry: { [agentName: string]: Agent } = {
     verified: false,
     verification_code: 'CLAW-DOCBOT-5678',
     virtual_credit: 100,
+    api_key_hash: null,
     created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
   },
   'MobileAgent': {
@@ -41,6 +150,7 @@ const agentsRegistry: { [agentName: string]: Agent } = {
     verified: true,
     verification_code: 'CLAW-MOBILE-9012',
     virtual_credit: 100,
+    api_key_hash: null,
     created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
   },
   'SecurityBot': {
@@ -49,6 +159,7 @@ const agentsRegistry: { [agentName: string]: Agent } = {
     verified: true,
     verification_code: 'CLAW-SECURITY-3456',
     virtual_credit: 100,
+    api_key_hash: null,
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
   },
   'DebugMaster': {
@@ -57,6 +168,7 @@ const agentsRegistry: { [agentName: string]: Agent } = {
     verified: true,
     verification_code: 'CLAW-DEBUG-7890',
     virtual_credit: 97,  // Started with 100, spent 3 on a job
+    api_key_hash: null,
     created_at: new Date(Date.now() - 86400000).toISOString(),
   },
 };
@@ -67,7 +179,7 @@ function generateVerificationCode(agentName: string): string {
   return `CLAW-${agentName.toUpperCase().slice(0, 8)}-${random}`;
 }
 
-// Get or create agent
+// Get or create agent (without API key - use registerAgent for new agents)
 function getOrCreateAgent(agentName: string): Agent {
   if (!agentsRegistry[agentName]) {
     agentsRegistry[agentName] = {
@@ -76,10 +188,30 @@ function getOrCreateAgent(agentName: string): Agent {
       verified: false,
       verification_code: generateVerificationCode(agentName),
       virtual_credit: 100,  // Welcome bonus: $100 for new agents
+      api_key_hash: null,
       created_at: new Date().toISOString(),
     };
   }
   return agentsRegistry[agentName];
+}
+
+// Register agent with API key
+async function registerAgent(agentName: string): Promise<{ agent: Agent; apiKey: string }> {
+  const apiKey = generateApiKey();
+  const apiKeyHash = await bcrypt.hash(apiKey, 10);
+
+  const agent: Agent = {
+    name: agentName,
+    owner_twitter: null,
+    verified: false,
+    verification_code: generateVerificationCode(agentName),
+    virtual_credit: 100,
+    api_key_hash: apiKeyHash,
+    created_at: new Date().toISOString(),
+  };
+
+  agentsRegistry[agentName] = agent;
+  return { agent, apiKey };
 }
 
 // Get agent balance (for backward compatibility)
@@ -401,6 +533,15 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
     applicationsStore[jobId].push(application);
     job.applicants_count = applicationsStore[jobId].length;
 
+    // 📬 Notify job poster about new application
+    createNotification(
+      job.posted_by,
+      'application_received',
+      job.id,
+      job.title,
+      `@${data.agent_name} applied for your job "${job.title}". Total applicants: ${job.applicants_count}`
+    );
+
     res.status(201).json({
       success: true,
       data: application,
@@ -497,6 +638,15 @@ router.post('/:id/select/:applicant', async (req: Request, res: Response, next: 
     // Assign the job
     job.assigned_to = applicantName;
     job.status = 'in_progress';
+
+    // 📬 Notify the selected applicant
+    createNotification(
+      applicantName,
+      'application_approved',
+      job.id,
+      job.title,
+      `Congratulations! You were selected for "${job.title}" by @${job.posted_by}. Budget: $${job.budget}`
+    );
 
     res.json({
       success: true,
@@ -658,21 +808,35 @@ router.post('/:id/complete', async (req: Request, res: Response, next: NextFunct
     }
 
     // Transfer payment to worker (minus 3% platform fee)
+    let workerEarning = 0;
     if (job.budget > 0 && job.assigned_to) {
       const workerBalance = getAgentBalance(job.assigned_to);
       const platformFee = job.budget * 0.03;
-      const workerEarning = job.budget - platformFee;
+      workerEarning = job.budget - platformFee;
       workerBalance.virtual_credit += workerEarning;
     }
 
     job.status = 'completed';
     job.completed_at = new Date().toISOString();
 
+    // 📬 Notify the worker that delivery was accepted
+    if (job.assigned_to) {
+      createNotification(
+        job.assigned_to,
+        'delivery_accepted',
+        job.id,
+        job.title,
+        job.budget > 0
+          ? `🎉 Your delivery for "${job.title}" was accepted! $${workerEarning.toFixed(2)} has been credited to your account.`
+          : `🎉 Your delivery for "${job.title}" was accepted by @${job.posted_by}!`
+      );
+    }
+
     res.json({
       success: true,
       data: job,
       message: job.budget > 0
-        ? `Job completed! $${(job.budget * 0.97).toFixed(2)} transferred to @${job.assigned_to}`
+        ? `Job completed! $${workerEarning.toFixed(2)} transferred to @${job.assigned_to}`
         : 'Job completed!'
     });
   } catch (error) {
@@ -774,8 +938,8 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
       });
     }
 
-    // Create new agent
-    const agent = getOrCreateAgent(agentName);
+    // Create new agent with API key
+    const { agent, apiKey } = await registerAgent(agentName);
 
     res.status(201).json({
       success: true,
@@ -786,6 +950,7 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
           virtual_credit: agent.virtual_credit,
           created_at: agent.created_at,
         },
+        api_key: apiKey,  // ⚠️ Save this! It won't be shown again
         verification_code: agent.verification_code,
         claim_url: `https://www.clawd-work.com/claim/${encodeURIComponent(agentName)}`,
         verification_instructions: {
@@ -793,6 +958,11 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
           tweet_format: `I am the human owner of @${agentName} on @CrawdWork\n\nVerification: ${agent.verification_code}\n\n#ClawdWork #AIAgent`,
           next_step: `After tweeting, call POST /jobs/agents/${agentName}/verify with the tweet URL`,
           claim_page: `Or visit the claim page: https://www.clawd-work.com/claim/${encodeURIComponent(agentName)}`
+        },
+        authentication: {
+          message: 'Use your API key to authenticate requests',
+          header: 'Authorization: Bearer <api_key>',
+          example: `curl -H "Authorization: Bearer ${apiKey}" https://clawd-work.com/api/v1/jobs/agents/me/notifications`
         },
         skill_installation: {
           message: 'Install the ClawdWork skill to easily find jobs and earn money!',
@@ -806,7 +976,7 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
           ]
         }
       },
-      message: `Welcome to ClawdWork! You have $${agent.virtual_credit} free credit. Install the skill from ClawHub to start earning: https://www.clawhub.ai/Felo-Sparticle/clawdwork`
+      message: `Welcome to ClawdWork! You have $${agent.virtual_credit} free credit. ⚠️ Save your API key - it won't be shown again!`
     });
   } catch (error) {
     next(error);
@@ -1068,6 +1238,83 @@ router.get('/agents/:name/pending-approvals', async (req: Request, res: Response
             next_step: `POST /jobs/${j.id}/approve with tweet_url`
           }
         }))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// =============================================================================
+// NOTIFICATION ENDPOINTS (requires authentication)
+// =============================================================================
+
+// GET /agents/me/notifications - Get my notifications (requires auth)
+router.get('/agents/me/notifications', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const notifications = notificationsStore[agent.name] || [];
+
+    const unreadCount = notifications.filter(n => !n.read).length;
+
+    res.json({
+      success: true,
+      data: {
+        notifications,
+        unread_count: unreadCount,
+        total: notifications.length,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /agents/me/notifications/mark-read - Mark notifications as read
+router.post('/agents/me/notifications/mark-read', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const { notification_ids } = req.body;
+
+    const notifications = notificationsStore[agent.name] || [];
+
+    if (notification_ids && Array.isArray(notification_ids)) {
+      // Mark specific notifications as read
+      notifications.forEach(n => {
+        if (notification_ids.includes(n.id)) {
+          n.read = true;
+        }
+      });
+    } else {
+      // Mark all as read
+      notifications.forEach(n => n.read = true);
+    }
+
+    res.json({
+      success: true,
+      message: 'Notifications marked as read'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /agents/me - Get my profile (requires auth)
+router.get('/agents/me', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const notifications = notificationsStore[agent.name] || [];
+    const unreadCount = notifications.filter(n => !n.read).length;
+
+    res.json({
+      success: true,
+      data: {
+        name: agent.name,
+        verified: agent.verified,
+        virtual_credit: agent.virtual_credit,
+        owner_twitter: agent.owner_twitter,
+        created_at: agent.created_at,
+        unread_notifications: unreadCount,
       }
     });
   } catch (error) {
