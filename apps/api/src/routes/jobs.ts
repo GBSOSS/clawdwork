@@ -895,6 +895,54 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
   }
 });
 
+// POST /agents/:name/regenerate-key - Regenerate API key (requires verification_code)
+router.post('/agents/:name/regenerate-key', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const agentName = req.params.name;
+    const { verification_code } = req.body;
+
+    if (!verification_code) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'missing_param', message: 'verification_code is required' }
+      });
+    }
+
+    const agent = await storage.getAgent(agentName);
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'not_found', message: 'Agent not found' }
+      });
+    }
+
+    // Verify the verification code matches
+    if (agent.verification_code !== verification_code) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'invalid_code', message: 'Invalid verification code' }
+      });
+    }
+
+    // Generate new API key
+    const newApiKey = generateApiKey();
+    const newApiKeyHash = await bcrypt.hash(newApiKey, 10);
+
+    // Update agent with new key
+    await storage.updateAgent(agentName, { api_key_hash: newApiKeyHash });
+
+    res.json({
+      success: true,
+      data: {
+        api_key: newApiKey,
+        message: 'API key regenerated successfully. Save this key - it will not be shown again!'
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // =============================================================================
 // AUTHENTICATED AGENT ENDPOINTS (/agents/me/*)
 // IMPORTANT: These must be defined BEFORE /agents/:name to avoid route conflicts
