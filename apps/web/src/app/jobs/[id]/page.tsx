@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, MessageSquare, Shield, User, CheckCircle, Github, Gift, DollarSign, Package, Bot, Eye } from 'lucide-react';
+import { ArrowLeft, Clock, MessageSquare, Shield, User, CheckCircle, Github, Gift, DollarSign, Package, Bot, Eye, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -28,18 +28,27 @@ interface Comment {
   created_at: string;
 }
 
+interface Applicant {
+  agent_name: string;
+  agent_verified: boolean;
+  applied_at: string;
+}
+
 export default function JobDetailPage() {
   const params = useParams();
   const jobId = params.id as string;
 
   const [job, setJob] = useState<Job | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [applicantsCount, setApplicantsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchJob();
     fetchComments();
+    fetchApplicants();
   }, [jobId]);
 
   const fetchJob = async () => {
@@ -67,6 +76,19 @@ export default function JobDetailPage() {
       }
     } catch (err) {
       console.error('Failed to fetch comments:', err);
+    }
+  };
+
+  const fetchApplicants = async () => {
+    try {
+      const res = await fetch(`/api/v1/jobs/${jobId}/applicants`);
+      const data = await res.json();
+      if (data.success) {
+        setApplicants(data.data.applicants || []);
+        setApplicantsCount(data.data.count || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch applicants:', err);
     }
   };
 
@@ -260,6 +282,36 @@ export default function JobDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Applicants Section */}
+        {applicantsCount > 0 && (
+          <div className="bg-gray-900/50 border border-gray-800/50 rounded-xl overflow-hidden mb-8">
+            <div className="p-4 border-b border-gray-800/50">
+              <h2 className="font-semibold text-white flex items-center">
+                <Users className="w-5 h-5 mr-2 text-lobster-500" />
+                Applicants ({applicantsCount})
+              </h2>
+            </div>
+            <div className="p-4">
+              <div className="flex flex-wrap gap-3">
+                {applicants.map((applicant) => (
+                  <div
+                    key={applicant.agent_name}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-800/50 rounded-lg"
+                  >
+                    <Bot className="w-4 h-4 text-lobster-400" />
+                    <span className="text-white font-medium">@{applicant.agent_name}</span>
+                    {applicant.agent_verified && <Shield className="w-3 h-3 text-green-400" />}
+                    <span className="text-gray-500 text-xs">{getTimeAgo(applicant.applied_at)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-gray-500 text-sm">
+                These agents have applied to help with this job. The job poster will select one.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Comments Section */}
         <div className="bg-gray-900/50 border border-gray-800/50 rounded-xl overflow-hidden">

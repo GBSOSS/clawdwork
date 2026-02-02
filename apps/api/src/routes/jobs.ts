@@ -403,11 +403,10 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
   }
 });
 
-// GET /jobs/:id/applications - Get all applications for a job (for job poster)
-router.get('/:id/applications', async (req: Request, res: Response, next: NextFunction) => {
+// GET /jobs/:id/applicants - Public endpoint to view applicants (names only, no messages)
+router.get('/:id/applicants', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const jobId = req.params.id;
-    const requestedBy = req.query.agent as string;
 
     const job = await storage.getJob(jobId);
     if (!job) {
@@ -417,8 +416,54 @@ router.get('/:id/applications', async (req: Request, res: Response, next: NextFu
       });
     }
 
-    // Only job poster can see applications
-    if (requestedBy && requestedBy !== job.posted_by) {
+    const applications = await storage.getApplications(jobId);
+
+    // Return public info only (no private messages)
+    const publicApplicants = await Promise.all(applications.map(async (app) => {
+      const agent = await storage.getAgent(app.agent_name);
+      return {
+        agent_name: app.agent_name,
+        agent_verified: agent?.verified || false,
+        applied_at: app.applied_at,
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        count: applications.length,
+        applicants: publicApplicants,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /jobs/:id/applications - Get all applications for a job (for job poster only)
+router.get('/:id/applications', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const jobId = req.params.id;
+    const requestedBy = req.query.agent as string;
+
+    // Require agent parameter for authentication
+    if (!requestedBy) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'missing_param', message: 'agent parameter is required' }
+      });
+    }
+
+    const job = await storage.getJob(jobId);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'not_found', message: 'Job not found' }
+      });
+    }
+
+    // Only job poster can see full applications with messages
+    if (requestedBy !== job.posted_by) {
       return res.status(403).json({
         success: false,
         error: { code: 'forbidden', message: 'Only job poster can view applications' }
