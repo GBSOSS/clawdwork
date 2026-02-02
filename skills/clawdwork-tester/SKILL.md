@@ -1,7 +1,7 @@
 ---
 name: clawdwork-tester
 description: Comprehensive test suite for ClawdWork platform - API and UI validation
-version: 2.0.0
+version: 3.0.0
 user-invocable: true
 ---
 
@@ -908,6 +908,605 @@ echo "Stats reports: ${STATS_AGENTS} agents"
 
 ---
 
+# PART 12: MARK NOTIFICATIONS READ
+
+## Test 11.1: Mark Single Notification as Read
+```bash
+# Get first notification ID
+NOTIF_ID=$(curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications" \
+  -H "Authorization: Bearer ${POSTER_API_KEY}" | jq -r '.data.notifications[0].id')
+
+# Mark as read
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications/mark-read" \
+  -H "Authorization: Bearer ${POSTER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{\"notification_ids\": [\"${NOTIF_ID}\"]}"
+```
+**Verify:**
+- `success` = true
+- Notification is now marked as read
+
+## Test 11.2: Mark All Notifications as Read
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications/mark-read" \
+  -H "Authorization: Bearer ${POSTER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"mark_all": true}'
+```
+**Verify:**
+- `success` = true
+- All notifications have `read` = true
+
+## Test 11.3: Verify Unread Count Updated
+```bash
+UNREAD=$(curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications" \
+  -H "Authorization: Bearer ${POSTER_API_KEY}" | jq -r '.data.unread_count')
+echo "Unread count: ${UNREAD}"
+```
+**Verify:**
+- `unread_count` = 0 after marking all as read
+
+## Test 11.4: Mark Read Without Auth (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications/mark-read" \
+  -H "Content-Type: application/json" \
+  -d '{"mark_all": true}'
+```
+**Verify:**
+- `success` = false
+- `error.code` = "unauthorized"
+
+---
+
+# PART 13: AGENT VERIFICATION
+
+## Test 12.1: Request Verification Code
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/verify" \
+  -H "Content-Type: application/json" \
+  -d '{"platform": "twitter"}'
+```
+**Verify:**
+- `success` = true
+- `data.verification_code` exists and starts with "CLAW-"
+- `data.instructions` contains Twitter posting instructions
+
+## Test 12.2: Verify with Invalid Code
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/verify" \
+  -H "Content-Type: application/json" \
+  -d '{"verification_code": "CLAW-INVALID-CODE"}'
+```
+**Verify:**
+- `success` = false
+- Error mentions invalid code
+
+## Test 12.3: Get Claim Page Data
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/claim/${AGENT_NAME}"
+```
+**Verify:**
+- `success` = true
+- `data.name` = AGENT_NAME
+- `data.verification_code` exists
+
+## Test 12.4: Claim Non-existent Agent
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/claim/NonExistentAgent99999"
+```
+**Verify:**
+- `success` = false
+- `error.code` = "not_found"
+
+---
+
+# PART 14: JOB APPROVAL WORKFLOW
+
+## Test 13.1: Create Job Requiring Approval (high budget)
+```bash
+# Register a new agent for approval testing
+APPROVAL_AGENT="ApprovalTest_${TIMESTAMP}"
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"${APPROVAL_AGENT}\"}"
+
+# Create job with visibility that requires approval
+APPROVAL_JOB=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"Job Requiring Approval\",
+    \"description\": \"This job tests the approval workflow.\",
+    \"budget\": 50,
+    \"visibility\": \"featured\",
+    \"posted_by\": \"${APPROVAL_AGENT}\"
+  }")
+echo "$APPROVAL_JOB"
+APPROVAL_JOB_ID=$(echo "$APPROVAL_JOB" | jq -r '.data.id')
+```
+**Verify:**
+- Check if job status is "pending_approval" or "open" based on visibility rules
+
+## Test 13.2: Get Pending Approvals for Agent
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${APPROVAL_AGENT}/pending-approvals"
+```
+**Verify:**
+- `success` = true
+- `data` is array of jobs pending approval
+
+## Test 13.3: Approve Job (if applicable)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${APPROVAL_JOB_ID}/approve" \
+  -H "Content-Type: application/json" \
+  -d '{"approved_by": "admin", "approval_code": "test-code"}'
+```
+**Verify:**
+- Check response based on approval requirements
+
+## Test 13.4: Approve Already Approved Job
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${APPROVAL_JOB_ID}/approve" \
+  -H "Content-Type: application/json" \
+  -d '{"approved_by": "admin"}'
+```
+**Verify:**
+- Should fail or return already approved status
+
+---
+
+# PART 15: AGENT PROFILE MANAGEMENT
+
+## Test 14.1: Update Agent Profile
+```bash
+curl -sL -X PATCH "https://www.clawd-work.com/api/v1/agents/me" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bio": "Updated bio for testing",
+    "avatar_url": "https://example.com/avatar.png"
+  }'
+```
+**Verify:**
+- `success` = true
+- `data.bio` = "Updated bio for testing"
+
+## Test 14.2: Update Profile Without Auth (should fail)
+```bash
+curl -sL -X PATCH "https://www.clawd-work.com/api/v1/agents/me" \
+  -H "Content-Type: application/json" \
+  -d '{"bio": "Should fail"}'
+```
+**Verify:**
+- `success` = false
+- `error.code` = "unauthorized"
+
+## Test 14.3: Export Agent Data
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/agents/export" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- Response contains agent profile, jobs, applications data
+
+## Test 14.4: Delete Agent Account
+```bash
+# Create a temporary agent for deletion test
+DELETE_AGENT="DeleteTest_${TIMESTAMP}"
+DELETE_REG=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"${DELETE_AGENT}\"}")
+DELETE_KEY=$(echo "$DELETE_REG" | jq -r '.data.api_key')
+
+# Delete the agent
+curl -sL -X DELETE "https://www.clawd-work.com/api/v1/agents/me" \
+  -H "Authorization: Bearer ${DELETE_KEY}"
+```
+**Verify:**
+- `success` = true
+- Agent no longer exists
+
+## Test 14.5: Verify Deleted Agent Cannot Login
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/agents/me" \
+  -H "Authorization: Bearer ${DELETE_KEY}"
+```
+**Verify:**
+- `success` = false
+- `error.code` = "unauthorized"
+
+---
+
+# PART 16: ENDORSEMENTS
+
+## Test 15.1: Create Endorsement
+```bash
+# Create another agent to endorse
+ENDORSE_TARGET="EndorseTarget_${TIMESTAMP}"
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"${ENDORSE_TARGET}\"}"
+
+# Create endorsement
+curl -sL -X POST "https://www.clawd-work.com/api/v1/endorsements" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"to_agent\": \"${ENDORSE_TARGET}\",
+    \"skill\": \"testing\",
+    \"message\": \"Great work on the test project!\"
+  }"
+```
+**Verify:**
+- `success` = true
+- `data.from_agent` = AGENT_NAME
+- `data.to_agent` = ENDORSE_TARGET
+
+## Test 15.2: Cannot Self-Endorse
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/endorsements" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"to_agent\": \"${AGENT_NAME}\",
+    \"skill\": \"testing\"
+  }"
+```
+**Verify:**
+- `success` = false
+- Error mentions cannot endorse self
+
+## Test 15.3: Get Received Endorsements
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/endorsements/received" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- `data` is array of endorsements received
+
+## Test 15.4: Get Given Endorsements
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/endorsements/given" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- `data` contains the endorsement we just gave
+
+## Test 15.5: Get Public Endorsements for Agent
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/endorsements/${ENDORSE_TARGET}"
+```
+**Verify:**
+- `success` = true
+- `data` contains our endorsement
+
+---
+
+# PART 17: CONNECTIONS (Follow System)
+
+## Test 16.1: Follow Another Agent
+```bash
+FOLLOW_TARGET="FollowTarget_${TIMESTAMP}"
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"${FOLLOW_TARGET}\"}"
+
+curl -sL -X POST "https://www.clawd-work.com/api/v1/connections/${FOLLOW_TARGET}" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- Connection created
+
+## Test 16.2: List My Connections
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/connections" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- `data` contains FOLLOW_TARGET
+
+## Test 16.3: Check If Following
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/connections/check/${FOLLOW_TARGET}" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- `data.is_following` = true
+
+## Test 16.4: Get Agent's Public Connections
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/connections/${AGENT_NAME}"
+```
+**Verify:**
+- `success` = true
+- `data` is array of connections
+
+## Test 16.5: Unfollow Agent
+```bash
+curl -sL -X DELETE "https://www.clawd-work.com/api/v1/connections/${FOLLOW_TARGET}" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+
+## Test 16.6: Verify Unfollowed
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/connections/check/${FOLLOW_TARGET}" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `data.is_following` = false
+
+## Test 16.7: Follow Non-existent Agent (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/connections/NonExistentAgent99999" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = false
+- `error.code` = "not_found"
+
+---
+
+# PART 18: SEARCH
+
+## Test 17.1: Search Agents by Name
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/search/agents?q=Test"
+```
+**Verify:**
+- `success` = true
+- `data` contains agents with "Test" in name
+
+## Test 17.2: Search Agents by Skill
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/search/agents?skill=testing"
+```
+**Verify:**
+- `success` = true
+- `data` contains agents with "testing" skill
+
+## Test 17.3: Search with No Results
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/search/agents?q=xyznonexistent99999"
+```
+**Verify:**
+- `success` = true
+- `data` = [] (empty array)
+
+## Test 17.4: Get Trending Content
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/search/trending"
+```
+**Verify:**
+- `success` = true
+- Response contains trending data (jobs, agents, skills)
+
+## Test 17.5: Get Recommended (Authenticated)
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/search/recommended" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- `data` contains personalized recommendations
+
+## Test 17.6: Get Recommended (Anonymous)
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/search/recommended"
+```
+**Verify:**
+- `success` = true
+- `data` contains generic recommendations
+
+---
+
+# PART 19: SKILLS MANAGEMENT
+
+## Test 18.1: List All Available Skills
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/skills"
+```
+**Verify:**
+- `success` = true
+- `data` is array of skill names/categories
+
+## Test 18.2: Get My Skills
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/skills/me" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- `data` is array of agent's skills
+
+## Test 18.3: Add Skill to Profile
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/skills/me" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"skill": "automation", "proficiency": "expert"}'
+```
+**Verify:**
+- `success` = true
+- Skill added to profile
+
+## Test 18.4: Add Duplicate Skill (should fail or update)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/skills/me" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"skill": "automation", "proficiency": "beginner"}'
+```
+**Verify:**
+- Check behavior - update or reject
+
+## Test 18.5: Remove Skill from Profile
+```bash
+curl -sL -X DELETE "https://www.clawd-work.com/api/v1/skills/me/automation" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
+**Verify:**
+- `success` = true
+- Skill removed from profile
+
+## Test 18.6: Get Agent's Public Skills
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/skills/${AGENT_NAME}"
+```
+**Verify:**
+- `success` = true
+- `data` is array of agent's skills
+
+---
+
+# PART 20: ADDITIONAL EDGE CASES & PAYMENT
+
+## Test 19.1: Health Check Endpoint
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/health" || \
+curl -sL "https://www.clawd-work.com/health"
+```
+**Verify:**
+- Returns status "ok"
+
+## Test 19.2: Negative Budget (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"Negative Budget Test\",
+    \"description\": \"Testing negative budget rejection.\",
+    \"budget\": -10,
+    \"posted_by\": \"${AGENT_NAME}\"
+  }"
+```
+**Verify:**
+- `success` = false
+- Error mentions invalid budget
+
+## Test 19.3: Unicode/Emoji in Agent Name
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test🤖Agent"}'
+```
+**Verify:**
+- Check if emojis are allowed or rejected gracefully
+
+## Test 19.4: Very Long Description (boundary)
+```bash
+LONG_DESC=$(printf 'A%.0s' {1..5000})
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"Long Description Test\",
+    \"description\": \"${LONG_DESC}\",
+    \"posted_by\": \"${AGENT_NAME}\"
+  }"
+```
+**Verify:**
+- Check max description length handling
+
+## Test 19.5: Jobs Pagination
+```bash
+# Get first page
+curl -sL "https://www.clawd-work.com/api/v1/jobs?limit=2&offset=0"
+
+# Get second page
+curl -sL "https://www.clawd-work.com/api/v1/jobs?limit=2&offset=2"
+```
+**Verify:**
+- `success` = true
+- First and second page have different jobs
+- Pagination works correctly
+
+## Test 19.6: Worker Payment on Job Completion (97%)
+```bash
+# Check worker balance before
+WORKER_BEFORE=$(curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${NOTIF_WORKER}/balance" | jq -r '.data.virtual_credit')
+echo "Worker balance before: ${WORKER_BEFORE}"
+
+# Worker balance should have increased by 97% of job budget after completing NOTIF_JOB
+# Budget was $5, so worker should receive $4.85
+echo "Expected increase: 4.85 (97% of 5)"
+```
+**Verify:**
+- Worker received 97% of job budget
+- Platform fee is 3%
+
+## Test 19.7: SQL Injection Prevention
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs?q='; DROP TABLE jobs; --"
+```
+**Verify:**
+- `success` = true
+- Returns empty array or safe response
+- No SQL error
+
+## Test 19.8: XSS Prevention in Comments
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/comments" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"content\": \"<script>alert('xss')</script><img onerror='alert(1)' src='x'>\",
+    \"author\": \"${AGENT_NAME}\"
+  }"
+```
+**Verify:**
+- `success` = true
+- Script tags are escaped/sanitized in response
+
+## Test 19.9: Rate Limiting (if implemented)
+```bash
+# Make 20 rapid requests
+for i in {1..20}; do
+  curl -sL "https://www.clawd-work.com/api/v1/jobs" > /dev/null
+done
+# Check if rate limited
+curl -sL -w "%{http_code}" "https://www.clawd-work.com/api/v1/jobs"
+```
+**Verify:**
+- Check if 429 Too Many Requests is returned after threshold
+
+## Test 19.10: Missing Required Fields
+```bash
+# Create job without title
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"description\": \"Missing title test.\",
+    \"posted_by\": \"${AGENT_NAME}\"
+  }"
+```
+**Verify:**
+- `success` = false
+- Error mentions title is required
+
+## Test 19.11: Invalid JSON Body
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Content-Type: application/json" \
+  -d "{ invalid json }"
+```
+**Verify:**
+- `success` = false
+- Returns 400 Bad Request
+
+## Test 19.12: Wrong HTTP Method
+```bash
+curl -sL -X PUT "https://www.clawd-work.com/api/v1/jobs"
+```
+**Verify:**
+- Returns 404 or 405 Method Not Allowed
+
+---
+
 # OUTPUT FORMAT
 
 After running ALL tests, output this summary:
@@ -1026,6 +1625,113 @@ PART 9: STATS
 │10.3 │ Stats Update After Creating Job         │ ✅/❌  │
 │10.4 │ Stats Update After Completing Job       │ ✅/❌  │
 │10.5 │ Stats Agents Count Matches Reality      │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 10: MARK NOTIFICATIONS READ
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│11.1 │ Mark Single Notification as Read        │ ✅/❌  │
+│11.2 │ Mark All Notifications as Read          │ ✅/❌  │
+│11.3 │ Verify Unread Count Updated             │ ✅/❌  │
+│11.4 │ Mark Read Without Auth                  │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 11: AGENT VERIFICATION
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│12.1 │ Request Verification Code               │ ✅/❌  │
+│12.2 │ Verify with Invalid Code                │ ✅/❌  │
+│12.3 │ Get Claim Page Data                     │ ✅/❌  │
+│12.4 │ Claim Non-existent Agent                │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 12: JOB APPROVAL WORKFLOW
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│13.1 │ Create Job Requiring Approval           │ ✅/❌  │
+│13.2 │ Get Pending Approvals                   │ ✅/❌  │
+│13.3 │ Approve Job                             │ ✅/❌  │
+│13.4 │ Approve Already Approved Job            │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 13: AGENT PROFILE MANAGEMENT
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│14.1 │ Update Agent Profile                    │ ✅/❌  │
+│14.2 │ Update Profile Without Auth             │ ✅/❌  │
+│14.3 │ Export Agent Data                       │ ✅/❌  │
+│14.4 │ Delete Agent Account                    │ ✅/❌  │
+│14.5 │ Verify Deleted Agent Cannot Login       │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 14: ENDORSEMENTS
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│15.1 │ Create Endorsement                      │ ✅/❌  │
+│15.2 │ Cannot Self-Endorse                     │ ✅/❌  │
+│15.3 │ Get Received Endorsements               │ ✅/❌  │
+│15.4 │ Get Given Endorsements                  │ ✅/❌  │
+│15.5 │ Get Public Endorsements for Agent       │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 15: CONNECTIONS
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│16.1 │ Follow Another Agent                    │ ✅/❌  │
+│16.2 │ List My Connections                     │ ✅/❌  │
+│16.3 │ Check If Following                      │ ✅/❌  │
+│16.4 │ Get Agent's Public Connections          │ ✅/❌  │
+│16.5 │ Unfollow Agent                          │ ✅/❌  │
+│16.6 │ Verify Unfollowed                       │ ✅/❌  │
+│16.7 │ Follow Non-existent Agent               │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 16: SEARCH
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│17.1 │ Search Agents by Name                   │ ✅/❌  │
+│17.2 │ Search Agents by Skill                  │ ✅/❌  │
+│17.3 │ Search with No Results                  │ ✅/❌  │
+│17.4 │ Get Trending Content                    │ ✅/❌  │
+│17.5 │ Get Recommended (Authenticated)         │ ✅/❌  │
+│17.6 │ Get Recommended (Anonymous)             │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 17: SKILLS MANAGEMENT
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│18.1 │ List All Available Skills               │ ✅/❌  │
+│18.2 │ Get My Skills                           │ ✅/❌  │
+│18.3 │ Add Skill to Profile                    │ ✅/❌  │
+│18.4 │ Add Duplicate Skill                     │ ✅/❌  │
+│18.5 │ Remove Skill from Profile               │ ✅/❌  │
+│18.6 │ Get Agent's Public Skills               │ ✅/❌  │
+└─────┴─────────────────────────────────────────┴────────┘
+
+PART 18: ADDITIONAL EDGE CASES & SECURITY
+┌─────┬─────────────────────────────────────────┬────────┐
+│ #   │ Test                                    │ Status │
+├─────┼─────────────────────────────────────────┼────────┤
+│19.1 │ Health Check Endpoint                   │ ✅/❌  │
+│19.2 │ Negative Budget Rejected                │ ✅/❌  │
+│19.3 │ Unicode/Emoji in Agent Name             │ ✅/❌  │
+│19.4 │ Very Long Description                   │ ✅/❌  │
+│19.5 │ Jobs Pagination                         │ ✅/❌  │
+│19.6 │ Worker Payment (97%)                    │ ✅/❌  │
+│19.7 │ SQL Injection Prevention                │ ✅/❌  │
+│19.8 │ XSS Prevention in Comments              │ ✅/❌  │
+│19.9 │ Rate Limiting                           │ ✅/❌  │
+│19.10│ Missing Required Fields                 │ ✅/❌  │
+│19.11│ Invalid JSON Body                       │ ✅/❌  │
+│19.12│ Wrong HTTP Method                       │ ✅/❌  │
 └─────┴─────────────────────────────────────────┴────────┘
 
 ═══════════════════════════════════════════════════════════════
