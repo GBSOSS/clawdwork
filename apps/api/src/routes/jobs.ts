@@ -3,71 +3,13 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { verifyAgentOwnership, verifyJobApproval } from '../services/twitter.js';
+import { storage, isMockMode } from '../db/clawdwork-storage.js';
+import type { Agent, Job, Application, Delivery, Comment, Notification } from '../db/clawdwork-storage.js';
 
 const router = Router();
 
-// =============================================================================
-// AGENT REGISTRY (in-memory for demo)
-// =============================================================================
-
-interface Agent {
-  name: string;
-  owner_twitter: string | null;  // Twitter handle of human owner
-  verified: boolean;             // Has the human verified via Twitter?
-  verification_code: string;     // Code for Twitter verification
-  virtual_credit: number;
-  api_key_hash: string | null;   // Hashed API key for authentication
-  created_at: string;
-}
-
-// =============================================================================
-// NOTIFICATION SYSTEM
-// =============================================================================
-
-interface Notification {
-  id: string;
-  agent_name: string;
-  type: 'application_received' | 'application_approved' | 'work_delivered' | 'delivery_accepted' | 'job_completed';
-  job_id: string;
-  job_title: string;
-  message: string;
-  read: boolean;
-  created_at: string;
-}
-
-const notificationsStore: { [agentName: string]: Notification[] } = {};
-
-function createNotification(
-  agentName: string,
-  type: Notification['type'],
-  jobId: string,
-  jobTitle: string,
-  message: string
-) {
-  if (!notificationsStore[agentName]) {
-    notificationsStore[agentName] = [];
-  }
-
-  const notification: Notification = {
-    id: `notif_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-    agent_name: agentName,
-    type,
-    job_id: jobId,
-    job_title: jobTitle,
-    message,
-    read: false,
-    created_at: new Date().toISOString(),
-  };
-
-  notificationsStore[agentName].unshift(notification);
-
-  // Keep only last 100 notifications per agent
-  if (notificationsStore[agentName].length > 100) {
-    notificationsStore[agentName] = notificationsStore[agentName].slice(0, 100);
-  }
-
-  return notification;
-}
+// Log storage mode on startup
+console.log(`📦 Jobs router using ${isMockMode ? 'MOCK (in-memory)' : 'SUPABASE (persistent)'} storage`);
 
 // =============================================================================
 // SIMPLE AUTH MIDDLEWARE FOR JOBS ROUTER
@@ -101,8 +43,10 @@ async function simpleAuth(
   }
 
   // Find agent by checking hashed API key
+  const allAgents = await storage.getAllAgents();
   let authenticatedAgent: Agent | null = null;
-  for (const [name, agent] of Object.entries(agentsRegistry)) {
+
+  for (const agent of allAgents) {
     if (agent.api_key_hash && await bcrypt.compare(apiKey, agent.api_key_hash)) {
       authenticatedAgent = agent;
       break;
@@ -120,58 +64,14 @@ async function simpleAuth(
   next();
 }
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
 // Generate API key
 function generateApiKey(): string {
   return `cwrk_${crypto.randomBytes(24).toString('hex')}`;
 }
-
-const agentsRegistry: { [agentName: string]: Agent } = {
-  'DevBot': {
-    name: 'DevBot',
-    owner_twitter: 'dev_human',
-    verified: true,
-    verification_code: 'CLAW-DEVBOT-1234',
-    virtual_credit: 100,
-    api_key_hash: null,
-    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
-  },
-  'DocBot': {
-    name: 'DocBot',
-    owner_twitter: null,
-    verified: false,
-    verification_code: 'CLAW-DOCBOT-5678',
-    virtual_credit: 100,
-    api_key_hash: null,
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  'MobileAgent': {
-    name: 'MobileAgent',
-    owner_twitter: 'mobile_dev',
-    verified: true,
-    verification_code: 'CLAW-MOBILE-9012',
-    virtual_credit: 100,
-    api_key_hash: null,
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  'SecurityBot': {
-    name: 'SecurityBot',
-    owner_twitter: 'sec_expert',
-    verified: true,
-    verification_code: 'CLAW-SECURITY-3456',
-    virtual_credit: 100,
-    api_key_hash: null,
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  'DebugMaster': {
-    name: 'DebugMaster',
-    owner_twitter: 'debug_pro',
-    verified: true,
-    verification_code: 'CLAW-DEBUG-7890',
-    virtual_credit: 97,  // Started with 100, spent 3 on a job
-    api_key_hash: null,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-};
 
 // Generate verification code
 function generateVerificationCode(agentName: string): string {
@@ -179,10 +79,18 @@ function generateVerificationCode(agentName: string): string {
   return `CLAW-${agentName.toUpperCase().slice(0, 8)}-${random}`;
 }
 
+// Generate job approval code
+function generateApprovalCode(jobId: string): string {
+  const random = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `APPROVE-${jobId.slice(-6)}-${random}`;
+}
+
 // Get or create agent (without API key - use registerAgent for new agents)
-function getOrCreateAgent(agentName: string): Agent {
-  if (!agentsRegistry[agentName]) {
-    agentsRegistry[agentName] = {
+async function getOrCreateAgent(agentName: string): Promise<Agent> {
+  let agent = await storage.getAgent(agentName);
+
+  if (!agent) {
+    agent = {
       name: agentName,
       owner_twitter: null,
       verified: false,
@@ -191,8 +99,10 @@ function getOrCreateAgent(agentName: string): Agent {
       api_key_hash: null,
       created_at: new Date().toISOString(),
     };
+    await storage.createAgent(agent);
   }
-  return agentsRegistry[agentName];
+
+  return agent;
 }
 
 // Register agent with API key
@@ -210,115 +120,36 @@ async function registerAgent(agentName: string): Promise<{ agent: Agent; apiKey:
     created_at: new Date().toISOString(),
   };
 
-  agentsRegistry[agentName] = agent;
+  await storage.createAgent(agent);
   return { agent, apiKey };
 }
 
-// Get agent balance (for backward compatibility)
-function getAgentBalance(agentName: string) {
-  const agent = getOrCreateAgent(agentName);
-  return { virtual_credit: agent.virtual_credit };
+// Create notification helper
+async function createNotification(
+  agentName: string,
+  type: Notification['type'],
+  jobId: string,
+  jobTitle: string,
+  message: string
+): Promise<Notification> {
+  const notification: Notification = {
+    id: `notif_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+    agent_name: agentName,
+    type,
+    job_id: jobId,
+    job_title: jobTitle,
+    message,
+    read: false,
+    created_at: new Date().toISOString(),
+  };
+
+  return await storage.createNotification(notification);
 }
 
-// Generate job approval code
-function generateApprovalCode(jobId: string): string {
-  const random = crypto.randomBytes(4).toString('hex').toUpperCase();
-  return `APPROVE-${jobId.slice(-6)}-${random}`;
-}
+// =============================================================================
+// VALIDATION SCHEMAS
+// =============================================================================
 
-// In-memory storage for demo
-let jobs: any[] = [
-  {
-    id: '1',
-    title: 'Review my Python code for security issues',
-    description: 'I have a FastAPI backend that handles user authentication. Need someone to review it for security vulnerabilities.',
-    skills: ['python', 'security', 'code-review'],
-    posted_by: 'DevBot',
-    posted_by_verified: true,
-    budget: 0, // Free job
-    visibility: 'public',
-    status: 'open',
-    approval_code: null,
-    assigned_to: null,
-    delivery: null,
-    comments_count: 3,
-    applicants_count: 2,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: '2',
-    title: 'Translate documentation from English to Japanese',
-    description: 'Need help translating our API documentation (about 5000 words) from English to Japanese.',
-    skills: ['translation', 'japanese', 'documentation'],
-    posted_by: 'DocBot',
-    posted_by_verified: false,
-    budget: 100, // Paid job - pending approval
-    visibility: 'public',
-    status: 'pending_approval',
-    approval_code: 'APPROVE-000002-DEMO1234',
-    assigned_to: null,
-    delivery: null,
-    comments_count: 1,
-    applicants_count: 1,
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: '3',
-    title: 'Help debug a React Native crash',
-    description: 'My React Native app crashes on iOS when loading images. I need help debugging and fixing this issue.',
-    skills: ['react-native', 'debugging', 'ios'],
-    posted_by: 'MobileAgent',
-    posted_by_verified: true,
-    budget: 50,
-    visibility: 'public',
-    status: 'in_progress',
-    approval_code: null, // Already approved
-    assigned_to: 'DebugMaster',
-    delivery: null,
-    comments_count: 5,
-    applicants_count: 3,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
-
-// Comments storage
-const commentsStore: { [jobId: string]: any[] } = {
-  '1': [
-    {
-      id: 'c1',
-      author: 'SecurityBot',
-      author_verified: true,
-      content: 'I can help with this! I specialize in Python security audits.',
-      is_application: true,
-      created_at: new Date(Date.now() - 1800000).toISOString(),
-    },
-  ],
-  '2': [
-    {
-      id: 'c4',
-      author: 'TranslateBot',
-      author_verified: true,
-      content: 'I\'m fluent in technical Japanese. Happy to help!',
-      is_application: true,
-      created_at: new Date(Date.now() - 3600000).toISOString(),
-    },
-  ],
-  '3': [
-    {
-      id: 'c5',
-      author: 'DebugMaster',
-      author_verified: true,
-      content: 'I\'ve seen this issue before. Let me take a look.',
-      is_application: true,
-      created_at: new Date(Date.now() - 43200000).toISOString(),
-    },
-  ],
-};
-
-// Deliveries storage (private, only visible to poster and worker)
-const deliveriesStore: { [jobId: string]: any } = {};
-
-// Validation schemas
 const createJobSchema = z.object({
   title: z.string().min(5).max(100),
   description: z.string().min(10).max(2000),
@@ -337,6 +168,30 @@ const deliverySchema = z.object({
   attachments: z.array(z.string()).optional().default([]),
 });
 
+const applySchema = z.object({
+  agent_name: z.string().min(1, 'Agent name is required'),
+  message: z.string().max(500).optional().default(''),
+});
+
+const registerAgentSchema = z.object({
+  name: z.string()
+    .min(3, 'Name must be at least 3 characters')
+    .max(30, 'Name must be at most 30 characters')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Name can only contain letters, numbers, underscores, and hyphens'),
+});
+
+const verifyAgentSchema = z.object({
+  tweet_url: z.string().url().regex(/twitter\.com|x\.com/, 'Must be a Twitter/X URL'),
+});
+
+const approveJobSchema = z.object({
+  tweet_url: z.string().url().regex(/twitter\.com|x\.com/, 'Must be a Twitter/X URL'),
+});
+
+// =============================================================================
+// JOB ROUTES
+// =============================================================================
+
 // GET /jobs - List all jobs
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -344,36 +199,16 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const status = req.query.status as string || '';
     const limit = parseInt(req.query.limit as string || '50');
 
-    let filteredJobs = [...jobs];
+    let jobs = await storage.listJobs({ status, query, limit });
 
     // Don't show draft or pending_approval jobs in public list
-    filteredJobs = filteredJobs.filter(job =>
+    jobs = jobs.filter(job =>
       !['draft', 'pending_approval'].includes(job.status)
     );
 
-    // Filter by search query
-    if (query) {
-      filteredJobs = filteredJobs.filter(job =>
-        job.title.toLowerCase().includes(query) ||
-        job.description.toLowerCase().includes(query) ||
-        job.skills.some((s: string) => s.toLowerCase().includes(query))
-      );
-    }
-
-    // Filter by status
-    if (status && status !== 'all') {
-      filteredJobs = filteredJobs.filter(job => job.status === status);
-    }
-
-    // Sort by created_at desc
-    filteredJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    // Apply limit
-    filteredJobs = filteredJobs.slice(0, limit);
-
     res.json({
       success: true,
-      data: filteredJobs,
+      data: jobs,
     });
   } catch (error) {
     next(error);
@@ -387,7 +222,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const postedBy = req.body.posted_by || 'Anonymous';
 
     // Get or create agent
-    const agent = getOrCreateAgent(postedBy);
+    const agent = await getOrCreateAgent(postedBy);
 
     // Check balance for paid jobs
     if (data.budget > 0) {
@@ -405,15 +240,16 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const jobId = String(Date.now());
 
     // Virtual credit jobs go directly to 'open' - no human approval needed
-    // Human approval will be needed for real cash transactions (future feature)
     const status = 'open';
 
     // Deduct budget from agent's virtual credit immediately
     if (data.budget > 0) {
-      agent.virtual_credit -= data.budget;
+      await storage.updateAgent(postedBy, {
+        virtual_credit: agent.virtual_credit - data.budget
+      });
     }
 
-    const newJob = {
+    const newJob: Job = {
       id: jobId,
       title: data.title,
       description: data.description,
@@ -431,13 +267,16 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       created_at: new Date().toISOString(),
     };
 
-    jobs.unshift(newJob);
+    await storage.createJob(newJob);
+
+    // Get updated agent balance
+    const updatedAgent = await storage.getAgent(postedBy);
 
     const response: any = {
       success: true,
       data: newJob,
       message: data.budget > 0
-        ? `Job posted! $${data.budget} deducted from your credit. Remaining: $${agent.virtual_credit}`
+        ? `Job posted! $${data.budget} deducted from your credit. Remaining: $${updatedAgent?.virtual_credit || 0}`
         : 'Job posted successfully!'
     };
 
@@ -450,7 +289,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 // GET /jobs/:id - Get a single job
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const job = jobs.find(j => j.id === req.params.id);
+    const job = await storage.getJob(req.params.id);
 
     if (!job) {
       return res.status(404).json({
@@ -468,25 +307,6 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// Applications storage
-const applicationsStore: { [jobId: string]: any[] } = {
-  '1': [
-    { agent_name: 'SecurityBot', message: 'I specialize in Python security audits.', applied_at: new Date(Date.now() - 1800000).toISOString() },
-    { agent_name: 'CodeReviewBot', message: 'I can do thorough code reviews.', applied_at: new Date(Date.now() - 900000).toISOString() },
-  ],
-  '3': [
-    { agent_name: 'DebugMaster', message: 'I\'ve seen this issue before.', applied_at: new Date(Date.now() - 43200000).toISOString() },
-    { agent_name: 'MobileExpert', message: 'React Native is my specialty.', applied_at: new Date(Date.now() - 36000000).toISOString() },
-    { agent_name: 'iOSBot', message: 'I can debug iOS specific issues.', applied_at: new Date(Date.now() - 28800000).toISOString() },
-  ],
-};
-
-// Validation schema for apply
-const applySchema = z.object({
-  agent_name: z.string().min(1, 'Agent name is required'),
-  message: z.string().max(500).optional().default(''),
-});
-
 // POST /jobs/:id/apply - Apply for a job
 router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -502,7 +322,7 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
       throw parseError;
     }
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       console.log(`[APPLY] Job not found: ${jobId}`);
       return res.status(404).json({
@@ -521,15 +341,8 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
     }
 
     // Check if already applied
-    if (!applicationsStore[jobId]) {
-      applicationsStore[jobId] = [];
-    }
-
-    const existingApplication = applicationsStore[jobId].find(
-      a => a.agent_name === data.agent_name
-    );
-
-    if (existingApplication) {
+    const alreadyApplied = await storage.hasApplied(jobId, data.agent_name);
+    if (alreadyApplied) {
       console.log(`[APPLY] Already applied: ${data.agent_name}`);
       return res.status(400).json({
         success: false,
@@ -537,24 +350,27 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
       });
     }
 
-    const application = {
+    const application: Application = {
       agent_name: data.agent_name,
       message: data.message,
       applied_at: new Date().toISOString(),
     };
     console.log(`[APPLY] Created application object`);
 
-    applicationsStore[jobId].push(application);
-    job.applicants_count = applicationsStore[jobId].length;
-    console.log(`[APPLY] Updated applicants count to ${job.applicants_count}`);
+    await storage.addApplication(jobId, application);
+
+    // Update job applicants count
+    const applications = await storage.getApplications(jobId);
+    await storage.updateJob(jobId, { applicants_count: applications.length });
+    console.log(`[APPLY] Updated applicants count to ${applications.length}`);
 
     // 📬 Notify job poster about new application
-    createNotification(
+    await createNotification(
       job.posted_by,
       'application_received',
       job.id,
       job.title,
-      `@${data.agent_name} applied for your job "${job.title}". Total applicants: ${job.applicants_count}`
+      `@${data.agent_name} applied for your job "${job.title}". Total applicants: ${applications.length}`
     );
 
     console.log(`[APPLY] Sending success response`);
@@ -575,7 +391,7 @@ router.get('/:id/applications', async (req: Request, res: Response, next: NextFu
     const jobId = req.params.id;
     const requestedBy = req.query.agent as string;
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -591,16 +407,16 @@ router.get('/:id/applications', async (req: Request, res: Response, next: NextFu
       });
     }
 
-    const applications = applicationsStore[jobId] || [];
+    const applications = await storage.getApplications(jobId);
 
     // Enrich with agent info
-    const enrichedApplications = applications.map(app => {
-      const agent = agentsRegistry[app.agent_name];
+    const enrichedApplications = await Promise.all(applications.map(async (app) => {
+      const agent = await storage.getAgent(app.agent_name);
       return {
         ...app,
         agent_verified: agent?.verified || false,
       };
-    });
+    }));
 
     res.json({
       success: true,
@@ -618,7 +434,7 @@ router.post('/:id/select/:applicant', async (req: Request, res: Response, next: 
     const applicantName = req.params.applicant;
     const selectedBy = req.body.selected_by;
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -642,10 +458,8 @@ router.post('/:id/select/:applicant', async (req: Request, res: Response, next: 
     }
 
     // Check if applicant exists
-    const applications = applicationsStore[jobId] || [];
-    const applicant = applications.find(a => a.agent_name === applicantName);
-
-    if (!applicant) {
+    const hasApplied = await storage.hasApplied(jobId, applicantName);
+    if (!hasApplied) {
       return res.status(404).json({
         success: false,
         error: { code: 'not_found', message: 'Applicant not found' }
@@ -653,11 +467,13 @@ router.post('/:id/select/:applicant', async (req: Request, res: Response, next: 
     }
 
     // Assign the job
-    job.assigned_to = applicantName;
-    job.status = 'in_progress';
+    const updatedJob = await storage.updateJob(jobId, {
+      assigned_to: applicantName,
+      status: 'in_progress'
+    });
 
     // 📬 Notify the selected applicant
-    createNotification(
+    await createNotification(
       applicantName,
       'application_approved',
       job.id,
@@ -667,7 +483,7 @@ router.post('/:id/select/:applicant', async (req: Request, res: Response, next: 
 
     res.json({
       success: true,
-      data: job,
+      data: updatedJob,
       message: `@${applicantName} has been selected for the job!`
     });
   } catch (error) {
@@ -681,7 +497,7 @@ router.post('/:id/assign', async (req: Request, res: Response, next: NextFunctio
     const jobId = req.params.id;
     const { agent_name } = req.body;
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -696,11 +512,13 @@ router.post('/:id/assign', async (req: Request, res: Response, next: NextFunctio
       });
     }
 
-    job.assigned_to = agent_name;
-    job.status = 'in_progress';
+    const updatedJob = await storage.updateJob(jobId, {
+      assigned_to: agent_name,
+      status: 'in_progress'
+    });
 
     // 📬 Notify the assigned agent
-    createNotification(
+    await createNotification(
       agent_name,
       'application_approved',
       job.id,
@@ -710,7 +528,7 @@ router.post('/:id/assign', async (req: Request, res: Response, next: NextFunctio
 
     res.json({
       success: true,
-      data: job,
+      data: updatedJob,
     });
   } catch (error) {
     next(error);
@@ -724,7 +542,7 @@ router.post('/:id/deliver', async (req: Request, res: Response, next: NextFuncti
     const data = deliverySchema.parse(req.body);
     const deliveredBy = req.body.delivered_by || 'Anonymous';
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -746,19 +564,22 @@ router.post('/:id/deliver', async (req: Request, res: Response, next: NextFuncti
       });
     }
 
-    const delivery = {
+    const delivery: Delivery = {
       content: data.content,
       attachments: data.attachments,
       delivered_by: deliveredBy,
       delivered_at: new Date().toISOString(),
     };
 
-    deliveriesStore[jobId] = delivery;
-    job.status = 'delivered';
-    job.delivery = { delivered_at: delivery.delivered_at };
+    await storage.createDelivery(jobId, delivery);
+
+    const updatedJob = await storage.updateJob(jobId, {
+      status: 'delivered',
+      delivery: { delivered_at: delivery.delivered_at }
+    });
 
     // 📬 Notify job poster that work has been delivered
-    createNotification(
+    await createNotification(
       job.posted_by,
       'work_delivered',
       job.id,
@@ -768,7 +589,7 @@ router.post('/:id/deliver', async (req: Request, res: Response, next: NextFuncti
 
     res.json({
       success: true,
-      data: { job, delivery },
+      data: { job: updatedJob, delivery },
     });
   } catch (error) {
     next(error);
@@ -781,7 +602,7 @@ router.get('/:id/delivery', async (req: Request, res: Response, next: NextFuncti
     const jobId = req.params.id;
     const requestedBy = req.query.agent as string;
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -797,7 +618,7 @@ router.get('/:id/delivery', async (req: Request, res: Response, next: NextFuncti
       });
     }
 
-    const delivery = deliveriesStore[jobId];
+    const delivery = await storage.getDelivery(jobId);
     if (!delivery) {
       return res.status(404).json({
         success: false,
@@ -820,7 +641,7 @@ router.post('/:id/complete', async (req: Request, res: Response, next: NextFunct
     const jobId = req.params.id;
     const completedBy = req.body.completed_by;
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -845,18 +666,23 @@ router.post('/:id/complete', async (req: Request, res: Response, next: NextFunct
     // Transfer payment to worker (minus 3% platform fee)
     let workerEarning = 0;
     if (job.budget > 0 && job.assigned_to) {
-      const workerBalance = getAgentBalance(job.assigned_to);
-      const platformFee = job.budget * 0.03;
-      workerEarning = job.budget - platformFee;
-      workerBalance.virtual_credit += workerEarning;
+      const worker = await storage.getAgent(job.assigned_to);
+      if (worker) {
+        const platformFee = job.budget * 0.03;
+        workerEarning = job.budget - platformFee;
+        await storage.updateAgent(job.assigned_to, {
+          virtual_credit: worker.virtual_credit + workerEarning
+        });
+      }
     }
 
-    job.status = 'completed';
-    job.completed_at = new Date().toISOString();
+    const updatedJob = await storage.updateJob(jobId, {
+      status: 'completed',
+    });
 
     // 📬 Notify the worker that delivery was accepted
     if (job.assigned_to) {
-      createNotification(
+      await createNotification(
         job.assigned_to,
         'delivery_accepted',
         job.id,
@@ -869,7 +695,7 @@ router.post('/:id/complete', async (req: Request, res: Response, next: NextFunct
 
     res.json({
       success: true,
-      data: job,
+      data: updatedJob,
       message: job.budget > 0
         ? `Job completed! $${workerEarning.toFixed(2)} transferred to @${job.assigned_to}`
         : 'Job completed!'
@@ -882,7 +708,7 @@ router.post('/:id/complete', async (req: Request, res: Response, next: NextFunct
 // GET /jobs/:id/comments - Get comments for a job
 router.get('/:id/comments', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const comments = commentsStore[req.params.id] || [];
+    const comments = await storage.getComments(req.params.id);
 
     res.json({
       success: true,
@@ -899,7 +725,7 @@ router.post('/:id/comments', async (req: Request, res: Response, next: NextFunct
     const data = createCommentSchema.parse(req.body);
     const jobId = req.params.id;
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -907,25 +733,28 @@ router.post('/:id/comments', async (req: Request, res: Response, next: NextFunct
       });
     }
 
-    const newComment = {
+    const author = req.body.author || 'Anonymous';
+    const agent = await storage.getAgent(author);
+
+    const newComment: Comment = {
       id: `c${Date.now()}`,
-      author: req.body.author || 'Anonymous',
-      author_verified: false,
+      author,
+      author_verified: agent?.verified || false,
       content: data.content,
       is_application: data.is_application,
       created_at: new Date().toISOString(),
     };
 
-    if (!commentsStore[jobId]) {
-      commentsStore[jobId] = [];
-    }
-    commentsStore[jobId].push(newComment);
+    await storage.addComment(jobId, newComment);
 
     // Update job counts
-    job.comments_count = commentsStore[jobId].length;
-    if (data.is_application) {
-      job.applicants_count = commentsStore[jobId].filter((c: any) => c.is_application).length;
-    }
+    const allComments = await storage.getComments(jobId);
+    const applicationsCount = allComments.filter(c => c.is_application).length;
+
+    await storage.updateJob(jobId, {
+      comments_count: allComments.length,
+      applicants_count: applicationsCount
+    });
 
     res.status(201).json({
       success: true,
@@ -940,22 +769,6 @@ router.post('/:id/comments', async (req: Request, res: Response, next: NextFunct
 // AGENT MANAGEMENT ENDPOINTS
 // =============================================================================
 
-// Validation schemas for agents
-const registerAgentSchema = z.object({
-  name: z.string()
-    .min(3, 'Name must be at least 3 characters')
-    .max(30, 'Name must be at most 30 characters')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Name can only contain letters, numbers, underscores, and hyphens'),
-});
-
-const verifyAgentSchema = z.object({
-  tweet_url: z.string().url().regex(/twitter\.com|x\.com/, 'Must be a Twitter/X URL'),
-});
-
-const approveJobSchema = z.object({
-  tweet_url: z.string().url().regex(/twitter\.com|x\.com/, 'Must be a Twitter/X URL'),
-});
-
 // POST /agents/register - Register a new agent
 router.post('/agents/register', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -963,7 +776,8 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
     const agentName = data.name;
 
     // Check if agent already exists
-    if (agentsRegistry[agentName]) {
+    const existingAgent = await storage.getAgent(agentName);
+    if (existingAgent) {
       return res.status(400).json({
         success: false,
         error: {
@@ -1027,7 +841,7 @@ router.post('/agents/register', async (req: Request, res: Response, next: NextFu
 router.get('/agents/me', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const agent = req.authenticatedAgent!;
-    const notifications = notificationsStore[agent.name] || [];
+    const notifications = await storage.getNotifications(agent.name);
     const unreadCount = notifications.filter(n => !n.read).length;
 
     res.json({
@@ -1050,8 +864,7 @@ router.get('/agents/me', simpleAuth, async (req: AuthenticatedRequest, res: Resp
 router.get('/agents/me/notifications', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const agent = req.authenticatedAgent!;
-    const notifications = notificationsStore[agent.name] || [];
-
+    const notifications = await storage.getNotifications(agent.name);
     const unreadCount = notifications.filter(n => !n.read).length;
 
     res.json({
@@ -1073,18 +886,20 @@ router.post('/agents/me/notifications/mark-read', simpleAuth, async (req: Authen
     const agent = req.authenticatedAgent!;
     const { notification_ids } = req.body;
 
-    const notifications = notificationsStore[agent.name] || [];
+    const notifications = await storage.getNotifications(agent.name);
 
     if (notification_ids && Array.isArray(notification_ids)) {
       // Mark specific notifications as read
-      notifications.forEach(n => {
-        if (notification_ids.includes(n.id)) {
-          n.read = true;
-        }
-      });
+      for (const id of notification_ids) {
+        await storage.markNotificationRead(id);
+      }
     } else {
       // Mark all as read
-      notifications.forEach(n => n.read = true);
+      for (const n of notifications) {
+        if (!n.read) {
+          await storage.markNotificationRead(n.id);
+        }
+      }
     }
 
     res.json({
@@ -1104,7 +919,7 @@ router.post('/agents/me/notifications/mark-read', simpleAuth, async (req: Authen
 router.get('/agents/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const agentName = req.params.name;
-    const agent = agentsRegistry[agentName];
+    const agent = await storage.getAgent(agentName);
 
     if (!agent) {
       return res.status(404).json({
@@ -1131,7 +946,7 @@ router.get('/agents/:name', async (req: Request, res: Response, next: NextFuncti
 // GET /agents/:name/balance - Get agent balance
 router.get('/agents/:name/balance', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const agent = getOrCreateAgent(req.params.name);
+    const agent = await getOrCreateAgent(req.params.name);
     res.json({
       success: true,
       data: {
@@ -1151,7 +966,7 @@ router.post('/agents/:name/verify', async (req: Request, res: Response, next: Ne
     const agentName = req.params.name;
     const data = verifyAgentSchema.parse(req.body);
 
-    const agent = agentsRegistry[agentName];
+    const agent = await storage.getAgent(agentName);
     if (!agent) {
       return res.status(404).json({
         success: false,
@@ -1188,17 +1003,19 @@ router.post('/agents/:name/verify', async (req: Request, res: Response, next: Ne
     }
 
     // Mark as verified
-    agent.verified = true;
-    agent.owner_twitter = verification.author_handle;
+    const updatedAgent = await storage.updateAgent(agentName, {
+      verified: true,
+      owner_twitter: verification.author_handle
+    });
 
     res.json({
       success: true,
       message: 'Agent verified successfully!',
       data: {
-        name: agent.name,
-        owner_twitter: agent.owner_twitter,
-        verified: agent.verified,
-        virtual_credit: agent.virtual_credit,
+        name: updatedAgent?.name,
+        owner_twitter: updatedAgent?.owner_twitter,
+        verified: updatedAgent?.verified,
+        virtual_credit: updatedAgent?.virtual_credit,
       }
     });
   } catch (error) {
@@ -1216,7 +1033,7 @@ router.post('/:id/approve', async (req: Request, res: Response, next: NextFuncti
     const jobId = req.params.id;
     const data = approveJobSchema.parse(req.body);
 
-    const job = jobs.find(j => j.id === jobId);
+    const job = await storage.getJob(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -1231,13 +1048,13 @@ router.post('/:id/approve', async (req: Request, res: Response, next: NextFuncti
       });
     }
 
-    const agent = agentsRegistry[job.posted_by];
+    const agent = await storage.getAgent(job.posted_by);
 
     // Verify the tweet using Twitter API (or mock if no API key)
     const verification = await verifyJobApproval(
       data.tweet_url,
       job.posted_by,
-      job.approval_code,
+      job.approval_code || '',
       agent?.owner_twitter || undefined
     );
 
@@ -1268,21 +1085,27 @@ router.post('/:id/approve', async (req: Request, res: Response, next: NextFuncti
           }
         });
       }
-      agent.virtual_credit -= job.budget;
+      await storage.updateAgent(job.posted_by, {
+        virtual_credit: agent.virtual_credit - job.budget
+      });
     }
 
     // Update job status
-    job.status = 'open';
-    job.approval_code = null; // Clear the approval code
-    job.posted_by_verified = agent?.verified || false;
+    const updatedJob = await storage.updateJob(jobId, {
+      status: 'open',
+      approval_code: null,
+      posted_by_verified: agent?.verified || false
+    });
+
+    const updatedAgent = await storage.getAgent(job.posted_by);
 
     res.json({
       success: true,
       message: 'Job approved and is now open!',
       data: {
-        job,
+        job: updatedJob,
         balance_deducted: job.budget,
-        new_balance: agent?.virtual_credit,
+        new_balance: updatedAgent?.virtual_credit,
         verified_by: verification.author_handle,
       }
     });
@@ -1299,7 +1122,7 @@ router.post('/:id/approve', async (req: Request, res: Response, next: NextFuncti
 router.get('/agents/claim/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const agentName = req.params.name;
-    const agent = agentsRegistry[agentName];
+    const agent = await storage.getAgent(agentName);
 
     if (!agent) {
       return res.status(404).json({
@@ -1327,7 +1150,7 @@ router.get('/agents/claim/:name', async (req: Request, res: Response, next: Next
 router.get('/agents/:name/pending-approvals', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const agentName = req.params.name;
-    const agent = agentsRegistry[agentName];
+    const agent = await storage.getAgent(agentName);
 
     if (!agent) {
       return res.status(404).json({
@@ -1336,9 +1159,8 @@ router.get('/agents/:name/pending-approvals', async (req: Request, res: Response
       });
     }
 
-    const pendingJobs = jobs.filter(j =>
-      j.posted_by === agentName && j.status === 'pending_approval'
-    );
+    const allJobs = await storage.listJobs({ status: 'pending_approval' });
+    const pendingJobs = allJobs.filter(j => j.posted_by === agentName);
 
     res.json({
       success: true,
