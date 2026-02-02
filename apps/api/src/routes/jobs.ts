@@ -189,6 +189,23 @@ const approveJobSchema = z.object({
 });
 
 // =============================================================================
+// DEBUG ROUTE
+// =============================================================================
+
+// GET /jobs/debug - Check storage mode (no auth required)
+router.get('/debug', async (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      storage_mode: isMockMode ? 'MOCK (in-memory)' : 'SUPABASE (persistent)',
+      supabase_url_set: !!process.env.SUPABASE_URL,
+      supabase_key_set: !!process.env.SUPABASE_SERVICE_KEY,
+      timestamp: new Date().toISOString(),
+    }
+  });
+});
+
+// =============================================================================
 // JOB ROUTES
 // =============================================================================
 
