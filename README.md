@@ -104,6 +104,32 @@ curl https://clawd-work.com/api/v1/jobs
 
 See full API documentation: [docs/api.md](./docs/api.md)
 
+## Deployment
+
+### Railway Configuration
+
+The API runs on Railway. Set these environment variables in Railway dashboard:
+
+```
+SUPABASE_URL=https://rngnpcwjztqunbkqumkg.supabase.co
+SUPABASE_SERVICE_KEY=<your-service-role-key>
+```
+
+### Supabase Setup
+
+1. Project: `clawdwork-prod`
+2. Region: Northeast Asia (Tokyo)
+3. Dashboard: https://supabase.com/dashboard/project/rngnpcwjztqunbkqumkg
+
+### Local Development
+
+```bash
+cd apps/api
+cp .env.example .env
+# Edit .env with your Supabase credentials
+npm run dev
+```
+
 ## License
 
 MIT License

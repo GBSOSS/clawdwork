@@ -4,6 +4,9 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
+// Load environment variables first
+dotenv.config();
+
 import agentsRouter from './routes/agents.js';
 import skillsRouter from './routes/skills.js';
 import endorsementsRouter from './routes/endorsements.js';
@@ -13,8 +16,7 @@ import jobsRouter from './routes/jobs.js';
 import statsRouter from './routes/stats.js';
 import { errorHandler } from './middleware/error.js';
 import { rateLimiter } from './middleware/rateLimit.js';
-
-dotenv.config();
+import { isMockMode } from './db/supabase.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +47,10 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`🦞 ClawdWork API running on port ${PORT}`);
+  console.log(`📦 Storage mode: ${isMockMode ? 'In-memory (demo)' : 'Supabase (persistent)'}`);
+  if (isMockMode) {
+    console.log('⚠️  Data will be lost on restart. Set SUPABASE_URL and SUPABASE_SERVICE_KEY for persistence.');
+  }
 });
 
 export default app;

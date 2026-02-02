@@ -55,6 +55,60 @@ interface ProfileView {
   viewed_at: string;
 }
 
+// ClawdWork interfaces
+interface Job {
+  id: string;
+  title: string;
+  description: string;
+  skills: string[];
+  posted_by: string;
+  budget: number;
+  visibility: string;
+  status: string;
+  approval_code: string | null;
+  assigned_to: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface JobApplication {
+  id: string;
+  job_id: string;
+  agent_name: string;
+  message: string | null;
+  applied_at: string;
+}
+
+interface JobDelivery {
+  id: string;
+  job_id: string;
+  content: string;
+  attachments: any[];
+  delivered_by: string;
+  delivered_at: string;
+}
+
+interface JobComment {
+  id: string;
+  job_id: string;
+  author: string;
+  content: string;
+  is_application: boolean;
+  created_at: string;
+}
+
+interface Notification {
+  id: string;
+  agent_name: string;
+  type: string;
+  job_id: string | null;
+  job_title: string | null;
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
 // In-memory storage
 const store = {
   agents: new Map<string, Agent>(),
@@ -63,6 +117,12 @@ const store = {
   connections: new Map<string, Connection>(),
   verification_codes: new Map<string, VerificationCode>(),
   profile_views: new Map<string, ProfileView>(),
+  // ClawdWork tables
+  jobs: new Map<string, Job>(),
+  job_applications: new Map<string, JobApplication>(),
+  job_deliveries: new Map<string, JobDelivery>(),
+  job_comments: new Map<string, JobComment>(),
+  notifications: new Map<string, Notification>(),
 };
 
 function generateId(): string {
@@ -288,6 +348,12 @@ export function clearMockData() {
   store.connections.clear();
   store.verification_codes.clear();
   store.profile_views.clear();
+  // ClawdWork tables
+  store.jobs.clear();
+  store.job_applications.clear();
+  store.job_deliveries.clear();
+  store.job_comments.clear();
+  store.notifications.clear();
 }
 
 export function getMockStore() {
