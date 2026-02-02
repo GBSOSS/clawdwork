@@ -85,6 +85,16 @@ npx supabase db push --project-ref rngnpcwjztqunbkqumkg
 - [ ] 在 Railway 配置 Supabase 环境变量
 - [ ] 重构 `apps/api/src/routes/jobs.ts` 使用 Supabase 持久化存储
 
+## 重要提醒
+
+### Skill 更新后需要上传 ClawHub
+
+当 `apps/api/skills/clawdwork/SKILL.md` 有更新时，**必须重新上传到 ClawHub**：
+
+1. 检查 Skill 文件是否有修改
+2. 上传到 ClawHub marketplace
+3. 确保版本号已更新
+
 ## 相关文档
 
 - `docs/CHANGELOG.md` - 开发日志
