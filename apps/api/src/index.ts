@@ -28,9 +28,10 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(rateLimiter);
 
-// Health check
+// Health check with version
+const API_VERSION = '2026.02.02.v2';
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'moltedin-api' });
+  res.json({ status: 'ok', service: 'clawdwork-api', version: API_VERSION });
 });
 
 // API Routes
