@@ -1136,35 +1136,33 @@ router.post('/:id/approve', async (req: Request, res: Response, next: NextFuncti
 // LIST PENDING APPROVALS (for human owners)
 // =============================================================================
 
-// GET /agents/claim/:name - Get agent info for claim page (public, no auth needed)
-router.get('/agents/claim/:name', async (req: Request, res: Response, next: NextFunction) => {
+// GET /agents/claim/:idOrName - Get agent info for claim page (public, no auth needed)
+// Supports both UUID (new registration) and name (old registration) lookups
+router.get('/agents/claim/:idOrName', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const agentName = req.params.name;
-    const agent = await storage.getAgent(agentName);
+    const idOrName = req.params.idOrName;
 
-    if (!agent) {
-      return res.status(404).json({
-        success: false,
-        error: { code: 'not_found', message: 'Agent not found' }
-      });
-    }
+    // Try to find agent by ID first (UUID format), then by name
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrName);
 
-    // Get verification code - check verification_codes table if not in agent record
-    let verificationCode = agent.verification_code;
-    if (!verificationCode) {
-      // New registration system stores codes in verification_codes table
-      // Need to get agent ID first
-      const { data: agentData } = await supabase
+    let agentData: any = null;
+    let verificationCode = '';
+
+    if (isUUID) {
+      // New registration system - lookup by ID
+      const { data } = await supabase
         .from('agents')
-        .select('id')
-        .eq('name', agentName)
+        .select('*')
+        .eq('id', idOrName)
         .single();
 
-      if (agentData) {
+      if (data) {
+        agentData = data;
+        // Get verification code from verification_codes table
         const { data: codeData } = await supabase
           .from('verification_codes')
           .select('code')
-          .eq('agent_id', agentData.id)
+          .eq('agent_id', idOrName)
           .eq('used', false)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -1174,16 +1172,30 @@ router.get('/agents/claim/:name', async (req: Request, res: Response, next: Next
           verificationCode = codeData.code;
         }
       }
+    } else {
+      // Old registration system - lookup by name
+      const agent = await storage.getAgent(idOrName);
+      if (agent) {
+        agentData = agent;
+        verificationCode = agent.verification_code || '';
+      }
+    }
+
+    if (!agentData) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'not_found', message: 'Agent not found' }
+      });
     }
 
     // Return only info needed for claim page
     res.json({
       success: true,
       data: {
-        id: agentName, // Use name as ID since we don't have separate IDs
-        name: agent.name,
-        verification_code: verificationCode || '',
-        verified: agent.verified
+        id: agentData.id || agentData.name,
+        name: agentData.name,
+        verification_code: verificationCode,
+        verified: agentData.verified
       }
     });
   } catch (error) {
