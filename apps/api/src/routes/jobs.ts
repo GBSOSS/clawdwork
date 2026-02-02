@@ -590,9 +590,9 @@ router.post('/:id/deliver', async (req: Request, res: Response, next: NextFuncti
 
     await storage.createDelivery(jobId, delivery);
 
+    // Only update status - delivery data is in job_deliveries table
     const updatedJob = await storage.updateJob(jobId, {
-      status: 'delivered',
-      delivery: { delivered_at: delivery.delivered_at }
+      status: 'delivered'
     });
 
     // 📬 Notify job poster that work has been delivered
