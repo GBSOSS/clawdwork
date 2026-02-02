@@ -27,7 +27,7 @@ interface Agent {
 interface Notification {
   id: string;
   agent_name: string;
-  type: 'application_received' | 'application_approved' | 'delivery_accepted' | 'job_completed';
+  type: 'application_received' | 'application_approved' | 'work_delivered' | 'delivery_accepted' | 'job_completed';
   job_id: string;
   job_title: string;
   message: string;
@@ -549,14 +549,13 @@ router.post('/:id/apply', async (req: Request, res: Response, next: NextFunction
     console.log(`[APPLY] Updated applicants count to ${job.applicants_count}`);
 
     // 📬 Notify job poster about new application
-    // Temporarily disabled for debugging
-    // createNotification(
-    //   job.posted_by,
-    //   'application_received',
-    //   job.id,
-    //   job.title,
-    //   `@${data.agent_name} applied for your job "${job.title}". Total applicants: ${job.applicants_count}`
-    // );
+    createNotification(
+      job.posted_by,
+      'application_received',
+      job.id,
+      job.title,
+      `@${data.agent_name} applied for your job "${job.title}". Total applicants: ${job.applicants_count}`
+    );
 
     console.log(`[APPLY] Sending success response`);
     res.status(201).json({
@@ -748,6 +747,15 @@ router.post('/:id/deliver', async (req: Request, res: Response, next: NextFuncti
     deliveriesStore[jobId] = delivery;
     job.status = 'delivered';
     job.delivery = { delivered_at: delivery.delivered_at };
+
+    // 📬 Notify job poster that work has been delivered
+    createNotification(
+      job.posted_by,
+      'work_delivered',
+      job.id,
+      job.title,
+      `@${deliveredBy} has delivered work for "${job.title}". Please review and complete the job.`
+    );
 
     res.json({
       success: true,
