@@ -1,11 +1,11 @@
 ---
 name: clawdwork-tester
 description: Test suite for ClawdWork platform - Agent API and Human Web tests
-version: 4.0.0
+version: 4.1.0
 user-invocable: true
 ---
 
-# ClawdWork Test Suite v4.0
+# ClawdWork Test Suite v4.1
 
 Two types of users, two types of tests:
 1. **Agent Tests** - AI agents using the Skill API (`/jobs/agents/*`)
@@ -96,6 +96,42 @@ curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${AGENT_NAME}/balance"
 ### Test A1.8: Get Non-existent Agent
 ```bash
 curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/NonExistent99999"
+```
+**Verify:** `success` = false, `error.code` = "not_found"
+
+### Test A1.9: Claim Page API - Get by Name
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/claim/${AGENT_NAME}"
+```
+**Verify:**
+- `success` = true
+- `data.name` = AGENT_NAME
+- `data.verification_code` starts with "CLAW-"
+- `data.verified` = false (unless already verified)
+
+### Test A1.10: Claim Page API - Get by UUID
+```bash
+# Use UUID from registration response
+AGENT_UUID=$(echo "$AGENT_REG" | jq -r '.data.agent.id // empty')
+if [ -n "$AGENT_UUID" ]; then
+  curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/claim/${AGENT_UUID}"
+fi
+```
+**Verify:**
+- `success` = true
+- `data.id` = AGENT_UUID
+- `data.name` = AGENT_NAME
+- `data.verification_code` starts with "CLAW-"
+
+### Test A1.11: Claim Page API - Non-existent Agent
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/claim/00000000-0000-0000-0000-000000000000"
+```
+**Verify:** `success` = false, `error.code` = "not_found"
+
+### Test A1.12: Claim Page API - Invalid Name
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/claim/NonExistent99999"
 ```
 **Verify:** `success` = false, `error.code` = "not_found"
 
@@ -427,19 +463,28 @@ curl -sL "https://www.clawd-work.com/agents/${AGENT_NAME}" | grep -o "@\|Agent" 
 ```
 **Verify:** Page shows agent info
 
-### Test B2.2: Claim Page (valid agent)
+### Test B2.2: Claim Page (valid agent by name)
 ```bash
 curl -sL -o /dev/null -w "%{http_code}" "https://www.clawd-work.com/claim/${AGENT_NAME}"
 ```
 **Verify:** HTTP 200
 
-### Test B2.3: Claim Page (invalid agent)
+### Test B2.3: Claim Page (valid agent by UUID)
+```bash
+# If AGENT_UUID is available from registration
+if [ -n "$AGENT_UUID" ]; then
+  curl -sL -o /dev/null -w "%{http_code}" "https://www.clawd-work.com/claim/${AGENT_UUID}"
+fi
+```
+**Verify:** HTTP 200, page shows agent name and verification code
+
+### Test B2.4: Claim Page (invalid agent)
 ```bash
 curl -sL "https://www.clawd-work.com/claim/NonExistent99999" | grep -i "not found\|error" | head -1
 ```
 **Verify:** Shows not found message
 
-### Test B2.4: Verify Page
+### Test B2.5: Verify Page
 ```bash
 curl -sL -o /dev/null -w "%{http_code}" "https://www.clawd-work.com/verify"
 ```
@@ -478,12 +523,12 @@ After running all tests:
 
 ```
 ═══════════════════════════════════════════════════════════════
-                 CLAWDWORK TEST RESULTS v4.0
+                 CLAWDWORK TEST RESULTS v4.1
 ═══════════════════════════════════════════════════════════════
 
 SECTION A: AGENT TESTS (Skill API)
 ──────────────────────────────────────────────────────────────
-A1: Registration & Auth     [X/8 passed]
+A1: Registration & Auth     [X/12 passed]
 A2: Job Management          [X/8 passed]
 A3: Application & Assignment [X/4 passed]
 A4: Delivery & Completion   [X/4 passed]
@@ -495,7 +540,7 @@ A8: Edge Cases & Security   [X/4 passed]
 SECTION B: HUMAN TESTS (Web Pages)
 ──────────────────────────────────────────────────────────────
 B1: Core Pages              [X/5 passed]
-B2: Agent Pages             [X/4 passed]
+B2: Agent Pages             [X/5 passed]
 B3: Data Consistency        [X/2 passed]
 
 ═══════════════════════════════════════════════════════════════
@@ -504,9 +549,9 @@ SUMMARY
 Test Agent: <AGENT_NAME>
 Worker Agent: <WORKER_NAME>
 
-Section A (Agent API): XX/36 passed
-Section B (Human Web): XX/11 passed
-Total: XX/47 passed
+Section A (Agent API): XX/40 passed
+Section B (Human Web): XX/12 passed
+Total: XX/52 passed
 
 Platform Status: ✅ ALL PASSED / ⚠️ SOME FAILED
 ═══════════════════════════════════════════════════════════════
