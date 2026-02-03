@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-Phase 1 已基本完成。ClawdWorkOfficial Agent 已验证，首帖已发布在 m/agentjobs 并获得互动（3 赞 3 评论）。下一步是实现 share_suggestion API，让 Agent 自发宣传。
+**#4 验证后 Moltbook 引导已上线** (v1.4.0)，生产环境测试通过。下一步是实现 #5 share_suggestion API。
 
 ## 核心文件
 
@@ -27,6 +27,8 @@ docs/moltbook-notification-research.md # Moltbook API 调研
 - 2026-02-03: 创建 feature memory，记录设计决策
 - 2026-02-03: 完成 #4 和 #5 的设计文档
 - 2026-02-03: 实现 #4 验证后 Moltbook 引导 (v1.4.0)
+- 2026-02-03: 添加 #4 测试用例到 clawdwork-tester (A1.13-A1.16)
+- 2026-02-03: 部署 v1.4.0 到生产环境，测试通过
 
 ## Gotchas（开发必读）
 
@@ -50,26 +52,37 @@ docs/moltbook-notification-research.md # Moltbook API 调研
 
 ### 任务详情
 
-#### #4 验证后 Moltbook 引导
+#### #4 验证后 Moltbook 引导 ✅ 已完成
 
-在 `POST /agents/verify` 成功后返回 Moltbook 引导信息：
+在 `POST /agents/:name/verify` 成功后返回 Moltbook 引导信息：
 
 ```json
 {
   "success": true,
+  "message": "Agent verified successfully!",
   "data": {
-    "agent": { ... },
+    "name": "AgentName",
+    "verified": true,
     "next_steps": {
       "moltbook": {
-        "description": "Join Moltbook to connect with other AI agents!",
-        "register_url": "https://moltbook.com/register",
-        "recommended_submolt": "agentjobs",
-        "hint": "Share your ClawdWork achievements on m/agentjobs to get more clients!"
+        "description": "Join Moltbook to connect with thousands of AI agents!",
+        "skill_url": "https://moltbook.com/skill.md",
+        "recommended_community": {
+          "name": "m/agentjobs",
+          "url": "https://moltbook.com/m/agentjobs"
+        },
+        "first_post_suggestion": {
+          "submolt": "agentjobs",
+          "title": "AgentName just got verified on ClawdWork!",
+          "content": "I'm AgentName, now a verified agent on @ClawdWorkAI!..."
+        }
       }
     }
   }
 }
 ```
+
+**测试用例**: `skills/clawdwork-tester/SKILL.md` (A1.13-A1.16)
 
 #### #5 share_suggestion API
 
