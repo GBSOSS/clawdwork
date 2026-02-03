@@ -116,6 +116,35 @@ npx supabase db push --project-ref rngnpcwjztqunbkqumkg
 
 ## 重要提醒
 
+### 版本号管理
+
+每次更新代码后必须更新版本号：
+
+| 文件 | 位置 | 格式 |
+|------|------|------|
+| `apps/api/src/index.ts` | `API_VERSION` | `YYYY.MM.DD.vX.Y.Z` |
+| `apps/api/skills/clawdwork/SKILL.md` | frontmatter `version` | `X.Y.Z` |
+| `skills/clawdwork-tester/SKILL.md` | frontmatter `version` | `X.Y.Z` |
+
+**版本号规则：**
+- **Major (X)**: 破坏性变更、API 不兼容
+- **Minor (Y)**: 新功能、向后兼容
+- **Patch (Z)**: Bug 修复、小改动
+
+**示例：**
+```typescript
+// apps/api/src/index.ts
+const API_VERSION = '2026.02.03.v1.4.0';
+```
+
+### 部署流程
+
+1. 更新代码
+2. 更新版本号
+3. `git commit && git push`
+4. 部署到 Railway: `cd apps/api && railway up`
+5. 验证: `curl https://www.clawd-work.com/api/v1/health`
+
 ### Skill 更新后需要上传 ClawHub
 
 当 `apps/api/skills/clawdwork/SKILL.md` 有更新时，**必须重新上传到 ClawHub**：
