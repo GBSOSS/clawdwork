@@ -76,6 +76,28 @@ export interface Notification {
   created_at: string;
 }
 
+export interface Review {
+  id: string;
+  job_id: string;
+  reviewer: string;
+  reviewee: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface AgentReviewStats {
+  average_rating: number;
+  total_reviews: number;
+  reviews: Array<{
+    rating: number;
+    comment: string | null;
+    reviewer: string;
+    job_title: string;
+    created_at: string;
+  }>;
+}
+
 // =============================================================================
 // IN-MEMORY FALLBACK STORES
 // =============================================================================
@@ -86,6 +108,7 @@ const memoryApplications: Map<string, Application[]> = new Map();
 const memoryDeliveries: Map<string, Delivery> = new Map();
 const memoryComments: Map<string, Comment[]> = new Map();
 const memoryNotifications: Map<string, Notification[]> = new Map();
+const memoryReviews: Map<string, Review[]> = new Map(); // key: job_id
 
 // Initialize with demo data
 function initializeDemoData() {
@@ -565,6 +588,160 @@ export const storage = {
       .eq('read', false);
 
     return count || 0;
+  },
+
+  // -------------------------------------------------------------------------
+  // REVIEWS
+  // -------------------------------------------------------------------------
+
+  async createReview(review: Review): Promise<Review> {
+    if (isMockMode) {
+      // Check for duplicate in mock mode
+      const reviews = memoryReviews.get(review.job_id) || [];
+      const existing = reviews.find(r => r.reviewer === review.reviewer);
+      if (existing) {
+        const error = new Error('DUPLICATE_REVIEW');
+        (error as any).code = 'DUPLICATE_REVIEW';
+        throw error;
+      }
+      reviews.push(review);
+      memoryReviews.set(review.job_id, reviews);
+      return review;
+    }
+
+    // Note: Don't pass id - let database generate UUID
+    const { data, error } = await supabase
+      .from('reviews')
+      .insert({
+        job_id: review.job_id,
+        reviewer: review.reviewer,
+        reviewee: review.reviewee,
+        rating: review.rating,
+        comment: review.comment,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // Handle UNIQUE constraint violation (PostgreSQL error code 23505)
+      if (error.code === '23505') {
+        const dupError = new Error('DUPLICATE_REVIEW');
+        (dupError as any).code = 'DUPLICATE_REVIEW';
+        throw dupError;
+      }
+      throw error;
+    }
+
+    // Return with database-generated id
+    return {
+      ...review,
+      id: data.id,
+      created_at: data.created_at,
+    };
+  },
+
+  async getReviewByJobAndReviewer(jobId: string, reviewer: string): Promise<Review | null> {
+    if (isMockMode) {
+      const reviews = memoryReviews.get(jobId) || [];
+      return reviews.find(r => r.reviewer === reviewer) || null;
+    }
+
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('job_id', jobId)
+      .eq('reviewer', reviewer)
+      .single();
+
+    if (error || !data) return null;
+    return data as Review;
+  },
+
+  async getReviewsForAgent(agentName: string, limit: number = 10): Promise<AgentReviewStats> {
+    if (isMockMode) {
+      // Collect all reviews where this agent is the reviewee
+      const allReviews: Review[] = [];
+      for (const reviews of memoryReviews.values()) {
+        allReviews.push(...reviews.filter(r => r.reviewee === agentName));
+      }
+
+      // Sort by created_at desc
+      allReviews.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      // Calculate stats
+      const total = allReviews.length;
+      const avgRating = total > 0
+        ? allReviews.reduce((sum, r) => sum + r.rating, 0) / total
+        : 0;
+
+      // Get job titles for reviews
+      const reviewsWithTitles = await Promise.all(
+        allReviews.slice(0, limit).map(async (r) => {
+          const job = memoryJobs.get(r.job_id);
+          return {
+            rating: r.rating,
+            comment: r.comment,
+            reviewer: r.reviewer,
+            job_title: job?.title || 'Unknown Job',
+            created_at: r.created_at,
+          };
+        })
+      );
+
+      return {
+        average_rating: Math.round(avgRating * 10) / 10,
+        total_reviews: total,
+        reviews: reviewsWithTitles,
+      };
+    }
+
+    // Get reviews from database
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('reviewee', agentName)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !reviews) {
+      return { average_rating: 0, total_reviews: 0, reviews: [] };
+    }
+
+    // Get total count
+    const { count } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('reviewee', agentName);
+
+    // Calculate average
+    const { data: avgData } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('reviewee', agentName);
+
+    const avgRating = avgData && avgData.length > 0
+      ? avgData.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / avgData.length
+      : 0;
+
+    // Get job titles
+    const reviewsWithTitles = await Promise.all(
+      reviews.map(async (r: Review) => {
+        const job = await this.getJob(r.job_id);
+        return {
+          rating: r.rating,
+          comment: r.comment,
+          reviewer: r.reviewer,
+          job_title: job?.title || 'Unknown Job',
+          created_at: r.created_at,
+        };
+      })
+    );
+
+    return {
+      average_rating: Math.round(avgRating * 10) / 10,
+      total_reviews: count || 0,
+      reviews: reviewsWithTitles,
+    };
   },
 };
 

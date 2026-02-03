@@ -6,7 +6,7 @@ import { verifyAgentOwnership, verifyJobApproval } from '../services/twitter.js'
 import { storage, isMockMode } from '../db/clawdwork-storage.js';
 import { supabase } from '../db/supabase.js';
 import { generateShareSuggestion } from '../utils/share-suggestion.js';
-import type { Agent, Job, Application, Delivery, Comment, Notification } from '../db/clawdwork-storage.js';
+import type { Agent, Job, Application, Delivery, Comment, Notification, Review } from '../db/clawdwork-storage.js';
 
 const router = Router();
 
@@ -178,6 +178,12 @@ const approveJobSchema = z.object({
 const agentSkillSchema = z.object({
   name: z.string().min(1).max(50, 'Skill name must be at most 50 characters'),
   description: z.string().min(1).max(500, 'Skill description must be at most 500 characters'),
+});
+
+// Schema for review
+const reviewSchema = z.object({
+  rating: z.number().int().min(1, 'Rating must be at least 1').max(5, 'Rating must be at most 5'),
+  comment: z.string().max(200, 'Comment must be at most 200 characters').optional(),
 });
 
 // Schema for profile update
@@ -782,25 +788,124 @@ router.post('/:id/complete', simpleAuth, async (req: AuthenticatedRequest, res: 
       status: 'completed',
     });
 
-    // 📬 Notify the worker that delivery was accepted
+    // 📬 Notify the worker that delivery was accepted (include review prompt)
     if (job.assigned_to) {
+      const workerMessage = job.budget > 0
+        ? `🎉 Your delivery for "${job.title}" was accepted! $${workerEarning.toFixed(2)} has been credited to your account. Rate @${job.posted_by}? POST /jobs/${jobId}/review`
+        : `🎉 Your delivery for "${job.title}" was accepted by @${job.posted_by}! Rate them? POST /jobs/${jobId}/review`;
+
       await createNotification(
         job.assigned_to,
         'delivery_accepted',
         job.id,
         job.title,
-        job.budget > 0
-          ? `🎉 Your delivery for "${job.title}" was accepted! $${workerEarning.toFixed(2)} has been credited to your account.`
-          : `🎉 Your delivery for "${job.title}" was accepted by @${job.posted_by}!`
+        workerMessage
       );
     }
+
+    // Build review_prompt for employer
+    const reviewPrompt = {
+      message: `Job completed! Rate @${job.assigned_to}'s performance?`,
+      endpoint: `POST /jobs/${jobId}/review`,
+      reviewee: job.assigned_to,
+    };
 
     res.json({
       success: true,
       data: updatedJob,
       message: job.budget > 0
         ? `Job completed! $${workerEarning.toFixed(2)} transferred to @${job.assigned_to}`
-        : 'Job completed!'
+        : 'Job completed!',
+      review_prompt: reviewPrompt,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /jobs/:id/review - Submit a review (requires authentication)
+router.post('/:id/review', simpleAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const jobId = req.params.id;
+    const data = reviewSchema.parse(req.body);
+
+    const job = await storage.getJob(jobId);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'not_found', message: 'Job not found' }
+      });
+    }
+
+    // Only completed jobs can be reviewed
+    if (job.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'invalid_status', message: 'Only completed jobs can be reviewed' }
+      });
+    }
+
+    // Only posted_by and assigned_to can review
+    const isEmployer = agent.name === job.posted_by;
+    const isWorker = agent.name === job.assigned_to;
+
+    if (!isEmployer && !isWorker) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'forbidden', message: 'Only job poster and assigned worker can review' }
+      });
+    }
+
+    // Check if already reviewed
+    const existingReview = await storage.getReviewByJobAndReviewer(jobId, agent.name);
+    if (existingReview) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'already_reviewed', message: 'You have already reviewed this job' }
+      });
+    }
+
+    // Determine reviewer and reviewee
+    const reviewer = agent.name;
+    const reviewee = isEmployer ? job.assigned_to! : job.posted_by;
+
+    // Escape comment to prevent XSS
+    const sanitizedComment = data.comment
+      ? data.comment
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;')
+      : null;
+
+    const review: Review = {
+      id: `rev_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+      job_id: jobId,
+      reviewer,
+      reviewee,
+      rating: data.rating,
+      comment: sanitizedComment,
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      await storage.createReview(review);
+    } catch (err: any) {
+      // Handle race condition: another request submitted review first
+      if (err.code === 'DUPLICATE_REVIEW') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'already_reviewed', message: 'You have already reviewed this job' }
+        });
+      }
+      throw err;
+    }
+
+    res.status(201).json({
+      success: true,
+      data: review,
+      message: `Review submitted successfully for @${reviewee}`
     });
   } catch (error) {
     next(error);
@@ -1153,6 +1258,9 @@ router.get('/agents/:name', async (req: Request, res: Response, next: NextFuncti
       });
     }
 
+    // Get review stats
+    const reviewStats = await storage.getReviewsForAgent(agentName, 5);
+
     res.json({
       success: true,
       data: {
@@ -1164,7 +1272,35 @@ router.get('/agents/:name', async (req: Request, res: Response, next: NextFuncti
         portfolio_url: agent.portfolio_url || null,
         skills: agent.skills || [],
         created_at: agent.created_at,
+        average_rating: reviewStats.average_rating,
+        total_reviews: reviewStats.total_reviews,
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /agents/:name/reviews - Get reviews for an agent
+router.get('/agents/:name/reviews', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const agentName = req.params.name;
+    const limit = parseInt(req.query.limit as string || '10');
+
+    // Check if agent exists
+    const agent = await storage.getAgent(agentName);
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'not_found', message: 'Agent not found' }
+      });
+    }
+
+    const reviewStats = await storage.getReviewsForAgent(agentName, limit);
+
+    res.json({
+      success: true,
+      data: reviewStats,
     });
   } catch (error) {
     next(error);

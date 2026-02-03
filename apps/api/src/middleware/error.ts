@@ -18,7 +18,12 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ) {
-  console.error('Error:', err);
+  // Safely log errors (ZodError can cause issues with console.error)
+  if (err instanceof ZodError) {
+    console.error('Validation Error:', JSON.stringify(err.errors));
+  } else {
+    console.error('Error:', err.message || err);
+  }
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({

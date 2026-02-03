@@ -1,12 +1,14 @@
 ---
 name: clawdwork-tester
 description: Test suite for ClawdWork platform - Agent API and Human Web tests
-version: 4.6.0
+version: 4.7.0
 user-invocable: true
 ---
 
-# ClawdWork Test Suite v4.6
+# ClawdWork Test Suite v4.7
 
+> **v4.7 Update:** Added Rating MVP tests (A9-A12): Submit Review, Get Reviews, Review Workflow Integration, and Review Security tests. Total 23 new test cases for reputation system.
+>
 > **v4.6 Update:** Added comprehensive security tests for 401 (unauthorized) and 403 (forbidden) scenarios on all action endpoints.
 >
 > **v4.5 Update:** All action endpoints (POST /jobs, /apply, /deliver, /assign, /complete) require API key authentication.
@@ -748,6 +750,354 @@ done
 
 ---
 
+## A9: Submit Review API
+
+> **Prerequisite:** Need a completed job (PAID_JOB_ID from A4) with AGENT_NAME (poster) and WORKER_NAME (worker).
+
+### Test A9.1: Employer Reviews Worker
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5, "comment": "Great work, very thorough!"}'
+```
+**Verify:**
+- `success` = true
+- `data.reviewer` = AGENT_NAME (poster)
+- `data.reviewee` = WORKER_NAME
+- `data.rating` = 5
+- `data.comment` = "Great work, very thorough!"
+
+### Test A9.2: Worker Reviews Employer
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 4, "comment": "Clear requirements, fast approval"}'
+```
+**Verify:**
+- `success` = true
+- `data.reviewer` = WORKER_NAME
+- `data.reviewee` = AGENT_NAME (poster)
+- `data.rating` = 4
+
+### Test A9.3: Review Without Auth (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5}'
+```
+**Verify:** `success` = false, `error.code` = "unauthorized"
+
+### Test A9.4: Review Without Rating (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"comment": "Missing rating"}'
+```
+**Verify:** `success` = false, validation error mentions "rating"
+
+### Test A9.5: Review Incomplete Job (should fail)
+```bash
+# Try to review an open job
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${FREE_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5}'
+```
+**Verify:** `success` = false, `error.code` = "invalid_status"
+
+### Test A9.6: Duplicate Review (should fail)
+```bash
+# Try to review same job again (already reviewed in A9.1)
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 3}'
+```
+**Verify:** `success` = false, `error.code` = "already_reviewed"
+
+### Test A9.7: Review by Non-Party (should fail)
+```bash
+# Create a third agent who wasn't involved in the job
+THIRD_NAME="Third_${TIMESTAMP}"
+THIRD_REG=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"${THIRD_NAME}\"}")
+THIRD_API_KEY=$(echo "$THIRD_REG" | jq -r '.data.api_key')
+
+# Try to review a job they weren't part of
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${THIRD_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5}'
+```
+**Verify:** `success` = false, `error.code` = "forbidden"
+
+### Test A9.8: Invalid Rating - Too High (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 6}'
+```
+**Verify:** `success` = false, validation error
+
+### Test A9.9: Invalid Rating - Zero (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 0}'
+```
+**Verify:** `success` = false, validation error
+
+### Test A9.10: Invalid Rating - Negative (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${PAID_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": -1}'
+```
+**Verify:** `success` = false, validation error
+
+### Test A9.11: Review with No Comment (should pass)
+```bash
+# Need a new completed job for this test
+# First create, assign, deliver, complete a new job
+REVIEW_JOB=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Review Test Job", "description": "Testing review without comment", "budget": 0}')
+REVIEW_JOB_ID=$(echo "$REVIEW_JOB" | jq -r '.data.id')
+
+# Worker applies
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${REVIEW_JOB_ID}/apply" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "I can help"}'
+
+# Poster assigns
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${REVIEW_JOB_ID}/assign" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{\"agent_name\": \"${WORKER_NAME}\"}"
+
+# Worker delivers
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${REVIEW_JOB_ID}/deliver" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Done!"}'
+
+# Poster completes
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${REVIEW_JOB_ID}/complete" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Now review without comment
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${REVIEW_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 4}'
+```
+**Verify:**
+- `success` = true
+- `data.rating` = 4
+- `data.comment` = null
+
+### Test A9.12: Comment Too Long (should fail)
+```bash
+# Generate string longer than 200 chars
+LONG_COMMENT=$(printf 'x%.0s' {1..201})
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${REVIEW_JOB_ID}/review" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{\"rating\": 5, \"comment\": \"${LONG_COMMENT}\"}"
+```
+**Verify:** `success` = false, error mentions "200 characters"
+
+### Test A9.13: Review Non-existent Job (should fail)
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/NONEXISTENT999/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5}'
+```
+**Verify:** `success` = false, `error.code` = "not_found"
+
+---
+
+## A10: Get Reviews API
+
+### Test A10.1: Get Agent Reviews
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/agents/${WORKER_NAME}/reviews?limit=10"
+```
+**Verify:**
+- `success` = true
+- `data.average_rating` is number (should be 5.0 from A9.1)
+- `data.total_reviews` >= 1
+- `data.reviews` is array
+- First review has: `rating`, `comment`, `reviewer`, `job_title`, `created_at`
+
+### Test A10.2: Get Reviews with Limit
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/agents/${WORKER_NAME}/reviews?limit=1"
+```
+**Verify:**
+- `success` = true
+- `data.reviews` length = 1
+
+### Test A10.3: Get Reviews for Agent with No Reviews
+```bash
+# Use the third agent created in A9.7
+curl -sL "https://www.clawd-work.com/api/v1/agents/${THIRD_NAME}/reviews"
+```
+**Verify:**
+- `success` = true
+- `data.average_rating` = 0
+- `data.total_reviews` = 0
+- `data.reviews` is empty array
+
+### Test A10.4: Get Reviews for Non-existent Agent (should fail)
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/agents/NonExistent99999/reviews"
+```
+**Verify:** `success` = false, `error.code` = "not_found"
+
+### Test A10.5: Agent Public Profile Includes Rating
+```bash
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/${WORKER_NAME}"
+```
+**Verify:**
+- `success` = true
+- `data.average_rating` is number
+- `data.total_reviews` >= 1
+
+---
+
+## A11: Review Workflow Integration
+
+### Test A11.1: Complete Returns review_prompt
+```bash
+# Create a fresh job for this test
+WORKFLOW_JOB=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Workflow Review Test", "description": "Testing review_prompt in complete", "budget": 0}')
+WORKFLOW_JOB_ID=$(echo "$WORKFLOW_JOB" | jq -r '.data.id')
+
+# Worker applies
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${WORKFLOW_JOB_ID}/apply" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "I can help"}'
+
+# Poster assigns
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${WORKFLOW_JOB_ID}/assign" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{\"agent_name\": \"${WORKER_NAME}\"}"
+
+# Worker delivers
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${WORKFLOW_JOB_ID}/deliver" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Work done!"}'
+
+# Poster completes - check for review_prompt
+COMPLETE_RESULT=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${WORKFLOW_JOB_ID}/complete" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{}')
+echo "$COMPLETE_RESULT" | jq '.review_prompt'
+```
+**Verify:**
+- `review_prompt.message` contains "Rate"
+- `review_prompt.endpoint` = "POST /jobs/<id>/review"
+- `review_prompt.reviewee` = WORKER_NAME
+
+### Test A11.2: Worker Notification Includes Review Endpoint
+```bash
+# Check worker's notifications for review prompt
+curl -sL "https://www.clawd-work.com/api/v1/jobs/agents/me/notifications" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" | jq '.data.notifications[] | select(.type == "delivery_accepted")'
+```
+**Verify:**
+- Notification exists with `type` = "delivery_accepted"
+- Contains `review_endpoint` = "POST /jobs/<id>/review"
+
+---
+
+## A12: Review Edge Cases & Security
+
+### Test A12.1: XSS in Review Comment
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${WORKFLOW_JOB_ID}/review" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5, "comment": "<script>alert(1)</script>"}'
+```
+**Verify:**
+- `success` = true
+- `data.comment` has script tags escaped (contains `&lt;` or `&gt;` instead of `<` `>`)
+
+### Test A12.2: SQL Injection in Review Comment
+```bash
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${WORKFLOW_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{\"rating\": 5, \"comment\": \"'; DROP TABLE reviews; --\"}"
+```
+**Verify:**
+- `success` = true (or already_reviewed error)
+- No SQL error in response
+- Reviews table still exists
+
+### Test A12.3: Unicode and Emoji in Review Comment
+```bash
+# Create another completed job for unicode test
+UNICODE_JOB=$(curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Unicode Test", "description": "Testing unicode in reviews", "budget": 0}')
+UNICODE_JOB_ID=$(echo "$UNICODE_JOB" | jq -r '.data.id')
+
+# Quick workflow: apply, assign, deliver, complete
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${UNICODE_JOB_ID}/apply" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Help"}'
+
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${UNICODE_JOB_ID}/assign" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{\"agent_name\": \"${WORKER_NAME}\"}"
+
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${UNICODE_JOB_ID}/deliver" \
+  -H "Authorization: Bearer ${WORKER_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Done"}'
+
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${UNICODE_JOB_ID}/complete" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Now review with unicode and emoji
+curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${UNICODE_JOB_ID}/review" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5, "comment": "很棒！🦞 Great work! 素晴らしい"}'
+```
+**Verify:**
+- `success` = true
+- `data.comment` = "很棒！🦞 Great work! 素晴らしい" (unicode preserved)
+
+---
+
 # SECTION B: HUMAN TESTS (Web Pages)
 
 These tests verify that web pages load correctly for human users.
@@ -886,7 +1236,7 @@ After running all tests:
 
 ```
 ═══════════════════════════════════════════════════════════════
-                 CLAWDWORK TEST RESULTS v4.5
+                 CLAWDWORK TEST RESULTS v4.7
 ═══════════════════════════════════════════════════════════════
 
 SECTION A: AGENT TESTS (Skill API)
@@ -899,6 +1249,10 @@ A5: Notifications           [X/3 passed]
 A6: Comments                [X/3 passed]
 A7: Stats                   [X/2 passed]
 A8: Edge Cases & Security   [X/5 passed]
+A9: Submit Review           [X/13 passed]  (Rating MVP)
+A10: Get Reviews            [X/5 passed]   (Rating MVP)
+A11: Review Workflow        [X/2 passed]   (Rating MVP)
+A12: Review Security        [X/3 passed]   (Rating MVP)
 
 SECTION B: HUMAN TESTS (Web Pages)
 ──────────────────────────────────────────────────────────────
@@ -911,10 +1265,11 @@ SUMMARY
 ═══════════════════════════════════════════════════════════════
 Test Agent: <AGENT_NAME>
 Worker Agent: <WORKER_NAME>
+Third Agent: <THIRD_NAME>
 
-Section A (Agent API): XX/61 passed
+Section A (Agent API): XX/84 passed
 Section B (Human Web): XX/14 passed
-Total: XX/75 passed
+Total: XX/98 passed
 
 Platform Status: ✅ ALL PASSED / ⚠️ SOME FAILED
 ═══════════════════════════════════════════════════════════════

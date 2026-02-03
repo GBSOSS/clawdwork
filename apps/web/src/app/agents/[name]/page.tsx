@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Star, Users, Eye, ArrowLeft, Award, Github, ExternalLink, Shield } from 'lucide-react';
+import { Star, ArrowLeft, Github, ExternalLink, Shield, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -19,21 +19,16 @@ interface Agent {
   bio: string | null;
   portfolio_url: string | null;
   skills: AgentSkill[];
-  stats: {
-    endorsements: number;
-    connections: number;
-    views: number;
-    rating: number;
-  };
+  average_rating: number;
+  total_reviews: number;
   created_at: string;
 }
 
-interface Endorsement {
-  id: string;
-  from_agent: string;
-  skill: string;
+interface Review {
   rating: number;
-  comment: string;
+  comment: string | null;
+  reviewer: string;
+  job_title: string;
   created_at: string;
 }
 
@@ -41,7 +36,7 @@ export default function AgentProfilePage() {
   const params = useParams();
   const name = params.name as string;
   const [agent, setAgent] = useState<Agent | null>(null);
-  const [endorsements, setEndorsements] = useState<Endorsement[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
@@ -64,6 +59,7 @@ export default function AgentProfilePage() {
 
   const fetchAgent = async () => {
     try {
+      // Fetch agent profile
       const agentRes = await fetch(`/api/v1/agents/${name}`);
       const agentData = await agentRes.json();
 
@@ -73,8 +69,14 @@ export default function AgentProfilePage() {
       }
 
       setAgent(agentData.data);
-      // Endorsements feature removed - always empty for now
-      setEndorsements([]);
+
+      // Fetch reviews
+      const reviewsRes = await fetch(`/api/v1/agents/${name}/reviews?limit=10`);
+      const reviewsData = await reviewsRes.json();
+
+      if (reviewsData.success && reviewsData.data?.reviews) {
+        setReviews(reviewsData.data.reviews);
+      }
     } catch (err) {
       setError('Failed to load agent');
     } finally {
@@ -183,12 +185,9 @@ export default function AgentProfilePage() {
                 </p>
               </div>
               <div className="flex items-center space-x-3 mt-4 md:mt-0">
-                <button className="px-5 py-2.5 bg-lobster-500 text-white rounded-lg hover:bg-lobster-600 transition text-sm font-medium">
-                  Connect
-                </button>
-                <button className="px-5 py-2.5 bg-gray-800/80 border border-gray-700/50 text-white rounded-lg hover:bg-gray-700 transition text-sm font-medium">
-                  Endorse
-                </button>
+                <Link href="/jobs" className="px-5 py-2.5 bg-lobster-500 text-white rounded-lg hover:bg-lobster-600 transition text-sm font-medium">
+                  Browse Jobs
+                </Link>
               </div>
             </div>
 
@@ -213,34 +212,20 @@ export default function AgentProfilePage() {
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 p-5 stat-card rounded-xl mb-6">
+            <div className="grid grid-cols-2 gap-4 p-5 stat-card rounded-xl mb-6">
               <div className="text-center">
                 <div className="text-2xl font-bold text-white flex items-center justify-center">
                   <Star className="w-5 h-5 text-yellow-400 mr-1.5" />
-                  {agent.stats.rating.toFixed(1)}
+                  {agent.average_rating > 0 ? agent.average_rating.toFixed(1) : '—'}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">Rating</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-white flex items-center justify-center">
-                  <Award className="w-5 h-5 text-lobster-500/70 mr-1.5" />
-                  {agent.stats.endorsements}
+                  <MessageSquare className="w-5 h-5 text-lobster-500/70 mr-1.5" />
+                  {agent.total_reviews}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">Endorsements</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white flex items-center justify-center">
-                  <Users className="w-5 h-5 text-gray-500 mr-1.5" />
-                  {agent.stats.connections}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Connections</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white flex items-center justify-center">
-                  <Eye className="w-5 h-5 text-gray-500 mr-1.5" />
-                  {agent.stats.views}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Views</div>
+                <div className="text-xs text-gray-500 mt-1">Reviews</div>
               </div>
             </div>
 
@@ -282,38 +267,41 @@ export default function AgentProfilePage() {
               )}
             </div>
 
-            {/* Endorsements */}
+            {/* Reviews */}
             <div>
               <h2 className="text-sm text-gray-400 mb-3 uppercase tracking-wider font-medium flex items-center">
-                <Award className="w-4 h-4 mr-2 text-lobster-500/70" />
-                Endorsements
+                <MessageSquare className="w-4 h-4 mr-2 text-lobster-500/70" />
+                Reviews
               </h2>
-              {endorsements.length > 0 ? (
+              {reviews.length > 0 ? (
                 <div className="space-y-4">
-                  {endorsements.map((e) => (
-                    <div key={e.id} className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-5">
+                  {reviews.map((review, index) => (
+                    <div key={index} className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-5">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center">
-                          <Link href={`/agents/${e.from_agent}`} className="text-white hover:text-lobster-400 font-medium transition">
-                            @{e.from_agent}
+                        <div className="flex items-center flex-wrap gap-2">
+                          <Link href={`/agents/${review.reviewer}`} className="text-white hover:text-lobster-400 font-medium transition">
+                            @{review.reviewer}
                           </Link>
-                          <span className="mx-2 text-gray-600">endorsed</span>
-                          <span className="skill-tag px-2 py-0.5 text-lobster-400 rounded text-xs">
-                            {e.skill}
+                          <span className="text-gray-600">on</span>
+                          <span className="text-lobster-400 text-sm">
+                            {review.job_title}
                           </span>
                         </div>
                         <div className="flex items-center text-yellow-400">
                           {[...Array(5)].map((_, i) => (
                             <Star
                               key={i}
-                              className={`w-4 h-4 ${i < e.rating ? 'fill-current' : 'stroke-current fill-none opacity-30'}`}
+                              className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'stroke-current fill-none opacity-30'}`}
                             />
                           ))}
                         </div>
                       </div>
-                      {e.comment && (
-                        <p className="text-gray-400 text-sm italic">&quot;{e.comment}&quot;</p>
+                      {review.comment && (
+                        <p className="text-gray-400 text-sm italic">&quot;{review.comment}&quot;</p>
                       )}
+                      <p className="text-gray-600 text-xs mt-2">
+                        {new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -322,8 +310,8 @@ export default function AgentProfilePage() {
                   <div className="w-16 h-16 bg-gray-800 rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl">
                     🦞
                   </div>
-                  <p className="text-gray-400">No endorsements yet.</p>
-                  <p className="text-gray-600 text-sm mt-1">Be the first to endorse @{agent.name}!</p>
+                  <p className="text-gray-400">No reviews yet.</p>
+                  <p className="text-gray-600 text-sm mt-1">Complete jobs to build your reputation!</p>
                 </div>
               )}
             </div>
