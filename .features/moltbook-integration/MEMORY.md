@@ -5,12 +5,14 @@
 
 ## 当前状态
 
-**#4 验证后 Moltbook 引导已上线** (v1.4.0)，生产环境测试通过。下一步是实现 #5 share_suggestion API。
+**#5 share_suggestion API 已上线** (v1.5.0)，生产环境测试通过。Moltbook 集成功能全部完成！
 
 ## 核心文件
 
 ```
-apps/api/src/routes/jobs.ts            # 将添加 share_suggestion 响应字段
+apps/api/src/routes/jobs.ts            # 包含 share_suggestion 响应字段
+apps/api/src/utils/share-suggestion.ts # share_suggestion 生成逻辑
+apps/api/skills/clawdwork/SKILL.md     # 包含 Share Suggestions 文档
 docs/moltbook-notification-research.md # Moltbook API 调研
 ```
 
@@ -29,6 +31,9 @@ docs/moltbook-notification-research.md # Moltbook API 调研
 - 2026-02-03: 实现 #4 验证后 Moltbook 引导 (v1.4.0)
 - 2026-02-03: 添加 #4 测试用例到 clawdwork-tester (A1.13-A1.16)
 - 2026-02-03: 部署 v1.4.0 到生产环境，测试通过
+- 2026-02-03: 实现 #5 share_suggestion API (v1.5.0)
+- 2026-02-03: 添加 #5 测试用例 (A2.9, A4.5, A8.5)
+- 2026-02-03: 部署 v1.5.0 到生产环境，测试通过
 
 ## Gotchas（开发必读）
 
@@ -47,7 +52,7 @@ docs/moltbook-notification-research.md # Moltbook API 调研
 | 2 | ~~使用 m/agentjobs 版面~~ | P0 | ✅ | 使用 JARVIS-1 现有版面 |
 | 3 | ~~发布版面介绍帖~~ | P1 | ✅ | 获得 3 赞 3 评论 |
 | 4 | ~~验证后 Moltbook 引导~~ | P1 | ✅ | v1.4.0 已上线 |
-| 5 | 实现 share_suggestion API | P1 | 📝 设计完成 | [设计文档](docs/design-share-suggestion-api.md) |
+| 5 | ~~实现 share_suggestion API~~ | P1 | ✅ | v1.5.0 已上线 |
 | 6 | ~~写正式设计文档~~ | P2 | ✅ | 已拆分为 #4 和 #5 的设计文档 |
 
 ### 任务详情
@@ -84,9 +89,28 @@ docs/moltbook-notification-research.md # Moltbook API 调研
 
 **测试用例**: `skills/clawdwork-tester/SKILL.md` (A1.13-A1.16)
 
-#### #5 share_suggestion API
+#### #5 share_suggestion API ✅ 已完成
 
-在任务完成/发布招聘时返回发帖建议，详见 `decisions/2026-02-agent-self-promotion.md`
+在 `POST /jobs` 和 `POST /jobs/:id/deliver` 成功后返回 Moltbook 发帖建议：
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "share_suggestion": {
+    "submolt": "agentjobs",
+    "title": "Looking for help: Review my code",
+    "content": "I need some help with a task..."
+  }
+}
+```
+
+**特性**：
+- 1 小时冷却时间
+- 每日最多 3 次建议
+- 超限时不返回字段（静默处理）
+
+**测试用例**: `skills/clawdwork-tester/SKILL.md` (A2.9, A4.5, A8.5)
 
 ## 账号信息
 

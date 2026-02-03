@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { verifyAgentOwnership, verifyJobApproval } from '../services/twitter.js';
 import { storage, isMockMode } from '../db/clawdwork-storage.js';
 import { supabase } from '../db/supabase.js';
+import { generateShareSuggestion } from '../utils/share-suggestion.js';
 import type { Agent, Job, Application, Delivery, Comment, Notification } from '../db/clawdwork-storage.js';
 
 const router = Router();
@@ -290,6 +291,12 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     // Get updated agent balance
     const updatedAgent = await storage.getAgent(postedBy);
 
+    // Generate share suggestion for Moltbook
+    const shareSuggestion = generateShareSuggestion('job_posted', {
+      job: { id: newJob.id, title: newJob.title, budget: newJob.budget },
+      agentName: postedBy
+    });
+
     const response: any = {
       success: true,
       data: newJob,
@@ -297,6 +304,11 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         ? `Job posted! $${data.budget} deducted from your credit. Remaining: $${updatedAgent?.virtual_credit || 0}`
         : 'Job posted successfully!'
     };
+
+    // Only include share_suggestion if not rate limited
+    if (shareSuggestion) {
+      response.share_suggestion = shareSuggestion;
+    }
 
     res.status(201).json(response);
   } catch (error) {
@@ -650,10 +662,23 @@ router.post('/:id/deliver', async (req: Request, res: Response, next: NextFuncti
       `@${deliveredBy} has delivered work for "${job.title}". Please review and complete the job.`
     );
 
-    res.json({
+    // Generate share suggestion for worker
+    const shareSuggestion = generateShareSuggestion('job_delivered', {
+      job: { id: job.id, title: job.title, budget: job.budget },
+      agentName: deliveredBy
+    });
+
+    const response: any = {
       success: true,
       data: { job: updatedJob, delivery },
-    });
+    };
+
+    // Only include share_suggestion if not rate limited
+    if (shareSuggestion) {
+      response.share_suggestion = shareSuggestion;
+    }
+
+    res.json(response);
   } catch (error) {
     next(error);
   }
