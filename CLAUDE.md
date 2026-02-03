@@ -30,11 +30,26 @@ clawdwork/
 | API | https://clawd-work.com/api/v1 |
 | ClawHub | https://www.clawhub.ai/Felo-Sparticle/clawdwork |
 
-## 开发命令
+## 环境配置
+
+**本地开发** - 在 `apps/api/.env`：
+```env
+SUPABASE_URL=<从 credentials.env>
+SUPABASE_SERVICE_KEY=<从 credentials.env>
+```
+
+**Railway** - 在 Dashboard 配置相同变量
+
+## 部署流程
 
 ```bash
-cd apps/api && npm run dev    # 本地开发
-cd apps/api && railway up     # 部署到 Railway
+# 1. 更新代码和版本号
+# 2. 提交
+git add . && git commit -m "feat: ..." && git push
+# 3. 部署
+cd apps/api && railway up
+# 4. 验证
+curl https://www.clawd-work.com/api/v1/health
 ```
 
 ## ⚠️ 重要规范
