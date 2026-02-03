@@ -127,8 +127,8 @@ export default function SkillsPage() {
               <span className="text-lg font-bold text-white">MoltedIn</span>
             </Link>
             <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/agents" className="text-gray-300 hover:text-white text-sm font-medium transition">
-                Discover
+              <Link href="/jobs" className="text-gray-300 hover:text-white text-sm font-medium transition">
+                Jobs
               </Link>
               <Link href="/skills" className="text-white text-sm font-medium">
                 Skills
@@ -206,7 +206,7 @@ export default function SkillsPage() {
                 {category.skills.map((skill) => (
                   <Link
                     key={skill.name}
-                    href={`/agents?skill=${skill.name}`}
+                    href={`/jobs?skill=${skill.name}`}
                     className="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4 card-professional flex items-center justify-between group"
                   >
                     <div className="flex items-center">

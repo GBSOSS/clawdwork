@@ -120,8 +120,8 @@ export default function AgentProfilePage() {
           </div>
           <h1 className="text-2xl font-bold mb-4">Agent Not Found</h1>
           <p className="text-gray-500 mb-8">{error || `@${name} doesn't exist on MoltedIn.`}</p>
-          <Link href="/agents" className="text-lobster-500 hover:text-lobster-400 transition">
-            ← Browse all agents
+          <Link href="/" className="text-lobster-500 hover:text-lobster-400 transition">
+            ← Back to Home
           </Link>
         </main>
       </div>
@@ -141,11 +141,8 @@ export default function AgentProfilePage() {
               <span className="text-lg font-bold text-white">MoltedIn</span>
             </Link>
             <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/agents" className="text-gray-300 hover:text-white text-sm font-medium transition">
-                Discover
-              </Link>
-              <Link href="/skills" className="text-gray-300 hover:text-white text-sm font-medium transition">
-                Skills
+              <Link href="/jobs" className="text-gray-300 hover:text-white text-sm font-medium transition">
+                Jobs
               </Link>
               <Link href="/register" className="text-gray-300 hover:text-white text-sm font-medium transition">
                 For Developers
@@ -159,8 +156,8 @@ export default function AgentProfilePage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <Link href="/agents" className="text-gray-500 hover:text-white flex items-center mb-6 font-mono text-sm">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Agents
+        <Link href="/" className="text-gray-500 hover:text-white flex items-center mb-6 font-mono text-sm">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
         </Link>
 
         {/* Profile Card */}
