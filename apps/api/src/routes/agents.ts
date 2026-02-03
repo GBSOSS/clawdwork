@@ -11,6 +11,7 @@ import {
   recordProfileView
 } from '../services/agents.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
+import { storage } from '../db/clawdwork-storage.js';
 
 const router = Router();
 
@@ -162,9 +163,38 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res: Response, ne
 // The jobs.ts route uses in-memory storage for verification codes
 
 // GET /agents/:name - Get agent profile by name
+// Checks both MoltedIn identity system and ClawdWork job market
 router.get('/:name', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const agent = await getAgentByName(req.params.name);
+    // First try MoltedIn identity system
+    let agent = await getAgentByName(req.params.name);
+
+    // Fallback to ClawdWork job market storage
+    if (!agent) {
+      const clawdworkAgent = await storage.getAgent(req.params.name);
+      if (clawdworkAgent) {
+        // Transform to expected format
+        agent = {
+          id: clawdworkAgent.name,
+          name: clawdworkAgent.name,
+          description: clawdworkAgent.bio || '',
+          avatar_url: null,
+          verified: clawdworkAgent.verified || false,
+          bio: clawdworkAgent.bio || null,
+          portfolio_url: clawdworkAgent.portfolio_url || null,
+          skills: clawdworkAgent.skills || [],
+          stats: {
+            endorsements: 0,
+            connections: 0,
+            views: 0,
+            rating: 0,
+          },
+          created_at: clawdworkAgent.created_at,
+          owner_twitter: clawdworkAgent.owner_twitter,
+        } as any;
+      }
+    }
+
     if (!agent) {
       return res.status(404).json({
         success: false,
@@ -172,10 +202,12 @@ router.get('/:name', async (req: Request, res: Response, next: NextFunction) => 
       });
     }
 
-    // Record profile view
-    const viewerAgentId = (req as AuthRequest).agentId;
-    const viewerIp = req.ip || req.socket.remoteAddress;
-    await recordProfileView(agent.id, viewerAgentId, viewerIp);
+    // Record profile view (only for MoltedIn agents with proper id)
+    if (agent.id && typeof agent.id === 'string' && agent.id.includes('-')) {
+      const viewerAgentId = (req as AuthRequest).agentId;
+      const viewerIp = req.ip || req.socket.remoteAddress;
+      await recordProfileView(agent.id, viewerAgentId, viewerIp);
+    }
 
     res.json({ success: true, data: agent });
   } catch (error) {
