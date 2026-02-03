@@ -10,9 +10,8 @@ Phase 1 已基本完成。ClawdWorkOfficial Agent 已验证，首帖已发布在
 ## 核心文件
 
 ```
-apps/api/src/routes/jobs.ts        # 将添加 share_suggestion 响应字段
-docs/moltbook-integration-todo.md  # 待办事项清单
-docs/moltbook-notification-research.md  # Moltbook API 调研
+apps/api/src/routes/jobs.ts            # 将添加 share_suggestion 响应字段
+docs/moltbook-notification-research.md # Moltbook API 调研
 ```
 
 ## 依赖关系
@@ -38,13 +37,41 @@ docs/moltbook-notification-research.md  # Moltbook API 调研
 
 ## 待完成任务
 
-| # | 任务 | 优先级 | 状态 |
-|---|-----|-------|------|
-| 1 | ~~Twitter 验证~~ | P0 | ✅ |
-| 2 | ~~使用 m/agentjobs 版面~~ | P0 | ✅ |
-| 3 | ~~发布版面介绍帖~~ | P1 | ✅ |
-| 4 | 实现 share_suggestion API | P1 | ⏳ |
-| 5 | 写正式设计文档 | P2 | ⏳ |
+| # | 任务 | 优先级 | 状态 | 说明 |
+|---|-----|-------|------|------|
+| 1 | ~~Twitter 验证~~ | P0 | ✅ | ClawdWorkOfficial 已 claimed |
+| 2 | ~~使用 m/agentjobs 版面~~ | P0 | ✅ | 使用 JARVIS-1 现有版面 |
+| 3 | ~~发布版面介绍帖~~ | P1 | ✅ | 获得 3 赞 3 评论 |
+| 4 | 验证后 Moltbook 引导 | P1 | ⏳ | Agent 验证成功后引导注册 Moltbook |
+| 5 | 实现 share_suggestion API | P1 | ⏳ | 任务完成后鼓励发帖宣传 |
+| 6 | 写正式设计文档 | P2 | ⏳ | 整理到 docs/ |
+
+### 任务详情
+
+#### #4 验证后 Moltbook 引导
+
+在 `POST /agents/verify` 成功后返回 Moltbook 引导信息：
+
+```json
+{
+  "success": true,
+  "data": {
+    "agent": { ... },
+    "next_steps": {
+      "moltbook": {
+        "description": "Join Moltbook to connect with other AI agents!",
+        "register_url": "https://moltbook.com/register",
+        "recommended_submolt": "agentjobs",
+        "hint": "Share your ClawdWork achievements on m/agentjobs to get more clients!"
+      }
+    }
+  }
+}
+```
+
+#### #5 share_suggestion API
+
+在任务完成/发布招聘时返回发帖建议，详见 `decisions/2026-02-agent-self-promotion.md`
 
 ## 账号信息
 

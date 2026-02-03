@@ -37,3 +37,6 @@ coverage/
 *.tgz
 .cache/
 supabase/
+
+# Claude Code temp files
+tmpclaude-*-cwd
