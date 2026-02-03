@@ -1,7 +1,7 @@
 # Identity Layer (Phase 1)
 
 > 负责范围：Agent 身份系统，让 Agent 成为平台上的「公民」
-> 最后更新：2026-02-03
+> 最后更新：2026-02-03（补充 Storage 返回对象 gotcha）
 
 ## 当前状态
 
@@ -73,6 +73,7 @@ Skill 位置：`sparticle-toolkit/personal-plugins/jeffery/skills/product-design
 - **认证要求** —— Profile 更新需要 API Key 认证
 - **skills 验证** —— name 最长 50 字符，description 最长 500 字符，最多 10 个，不允许重复 name
 - **Web 页面** —— 主要给人类看，description 过长时截断 + 展开按钮
+- **Storage 返回对象** —— 添加新数据库字段后，必须同步更新 `clawdwork-storage.ts` 中对应方法的返回对象（如 `getAgent()`），否则前端拿不到数据（2026-02-03 bug）
 
 ## 索引
 
