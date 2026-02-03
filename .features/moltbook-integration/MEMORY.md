@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-Phase 1 准备阶段。已注册 ClawdWorkOfficial Agent，待完成 Twitter 验证后创建 m/agentjobs 版面。核心方案是「鼓励 Agent 自发宣传」—— ClawdWork 提供分享文案，Agent 用自己的 Moltbook Skill 发帖。
+Phase 1 已基本完成。ClawdWorkOfficial Agent 已验证，首帖已发布在 m/agentjobs 并获得互动（3 赞 3 评论）。下一步是实现 share_suggestion API，让 Agent 自发宣传。
 
 ## 核心文件
 
@@ -17,30 +17,32 @@ docs/moltbook-notification-research.md  # Moltbook API 调研
 
 ## 依赖关系
 
-- **依赖**：Moltbook API（发帖、创建版面）
+- **依赖**：Moltbook API（发帖）
 - **被依赖**：无（独立功能模块）
 
 ## 最近重要事项
 
-- 2026-02-03: 注册 ClawdWorkOfficial Agent，凭证存于 `~/.jeffery-secrets/clawdwork/moltbook.json`
-- 2026-02-03: 确定方案 —— 不集成 Moltbook API，而是鼓励 Agent 用自己的 Skill 发帖
+- 2026-02-02: Twitter 验证完成，ClawdWorkOfficial 已 claimed
+- 2026-02-02: 决定使用现有 m/agentjobs 版面（JARVIS-1 创建，13 订阅者）
+- 2026-02-02: 首帖发布成功，获得 3 赞 3 评论
+- 2026-02-03: 创建 feature memory，记录设计决策
 
 ## Gotchas（开发必读）
 
 ⚠️ 以下是开发此 feature 时必须注意的事项：
 
-- **Moltbook API 需要 claimed agent** —— 创建版面、发帖都需要先完成 Twitter 验证
+- **使用现有版面** —— m/agentjobs 已由 JARVIS-1 创建，不需要新建
 - **发帖频率限制** —— 每 30 分钟只能发 1 帖，评论每 20 秒 1 条，每日 50 条
-- **API 域名必须带 www** —— 使用 `https://www.moltbook.com/api/v1`，不带 www 会有问题
-- **凭证安全** —— API key 存在私有仓库，不要提交到 clawdwork 主仓库
+- **API 域名必须带 www** —— 使用 `https://www.moltbook.com/api/v1`
+- **凭证安全** —— API key 存在私有仓库 `~/.jeffery-secrets/clawdwork/moltbook.json`
 
 ## 待完成任务
 
 | # | 任务 | 优先级 | 状态 |
 |---|-----|-------|------|
-| 1 | Twitter 验证 ClawdWorkOfficial | P0 | ⏳ |
-| 2 | 创建 m/agentjobs 版面 | P0 | ⏳ |
-| 3 | 发布版面介绍首帖 | P1 | ⏳ |
+| 1 | ~~Twitter 验证~~ | P0 | ✅ |
+| 2 | ~~使用 m/agentjobs 版面~~ | P0 | ✅ |
+| 3 | ~~发布版面介绍帖~~ | P1 | ✅ |
 | 4 | 实现 share_suggestion API | P1 | ⏳ |
 | 5 | 写正式设计文档 | P2 | ⏳ |
 
@@ -50,9 +52,17 @@ docs/moltbook-notification-research.md  # Moltbook API 调研
 |-----|---|
 | Agent 名称 | ClawdWorkOfficial |
 | Profile URL | https://moltbook.com/u/ClawdWorkOfficial |
-| Claim URL | https://moltbook.com/claim/moltbook_claim_gOOh0GP4RMnC-eFIRTXVPtZSn4UcH3ei |
-| 验证码 | splash-2JXU |
+| 首帖链接 | https://moltbook.com/post/3b46bcb5-ed56-489c-a27c-08abcf02df0a |
 | 凭证位置 | `~/.jeffery-secrets/clawdwork/moltbook.json` |
+
+## 版面信息
+
+| 字段 | 值 |
+|-----|---|
+| 版面 | m/agentjobs |
+| URL | https://moltbook.com/m/agentjobs |
+| 创建者 | JARVIS-1 |
+| 订阅者 | 13+ |
 
 ## 索引
 
