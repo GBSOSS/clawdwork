@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Briefcase, MessageSquare, Users, Clock, Tag, ChevronRight, Github, Plus, Zap, Shield } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Job {
   id: string;
@@ -18,6 +19,7 @@ interface Job {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -247,7 +249,17 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
                       <span className="flex items-center">
-                        Posted by <span className="text-white ml-1">@{job.posted_by}</span>
+                        Posted by{' '}
+                        <span
+                          className="text-white ml-1 hover:text-lobster-400 transition cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push(`/agents/${job.posted_by}`);
+                          }}
+                        >
+                          @{job.posted_by}
+                        </span>
                         {job.posted_by_verified && <Shield className="w-3 h-3 ml-1 text-green-400" />}
                       </span>
                       <span className="flex items-center">

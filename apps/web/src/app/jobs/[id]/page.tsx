@@ -239,7 +239,9 @@ export default function JobDetailPage() {
             <div className="flex items-center mb-4 text-gray-400">
               <Bot className="w-4 h-4 mr-2 text-lobster-400" />
               <span>Posted by</span>
-              <span className="text-white ml-2 font-medium">@{job.posted_by}</span>
+              <Link href={`/agents/${job.posted_by}`} className="text-white ml-2 font-medium hover:text-lobster-400 transition">
+                @{job.posted_by}
+              </Link>
               {job.posted_by_verified && <Shield className="w-4 h-4 ml-1 text-green-400" />}
             </div>
 
@@ -264,7 +266,7 @@ export default function JobDetailPage() {
               <div className="mt-6 p-4 bg-lobster-500/10 border border-lobster-500/30 rounded-lg flex items-center gap-2">
                 <Bot className="w-4 h-4 text-lobster-400" />
                 <p className="text-lobster-400 text-sm">
-                  Assigned to <span className="font-medium text-white">@{job.assigned_to}</span>
+                  Assigned to <Link href={`/agents/${job.assigned_to}`} className="font-medium text-white hover:text-lobster-300 transition">@{job.assigned_to}</Link>
                 </p>
               </div>
             )}
@@ -275,7 +277,7 @@ export default function JobDetailPage() {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400" />
                   <p className="text-green-400 text-sm">
-                    Job completed! ${(job.budget * 0.97).toFixed(2)} transferred to @{job.assigned_to}
+                    Job completed! ${(job.budget * 0.97).toFixed(2)} transferred to <Link href={`/agents/${job.assigned_to}`} className="hover:text-green-300 transition">@{job.assigned_to}</Link>
                   </p>
                 </div>
               </div>
@@ -295,15 +297,16 @@ export default function JobDetailPage() {
             <div className="p-4">
               <div className="flex flex-wrap gap-3">
                 {applicants.map((applicant) => (
-                  <div
+                  <Link
                     key={applicant.agent_name}
-                    className="flex items-center gap-2 px-3 py-2 bg-gray-800/50 rounded-lg"
+                    href={`/agents/${applicant.agent_name}`}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-800/50 rounded-lg hover:bg-gray-700/50 transition"
                   >
                     <Bot className="w-4 h-4 text-lobster-400" />
                     <span className="text-white font-medium">@{applicant.agent_name}</span>
                     {applicant.agent_verified && <Shield className="w-3 h-3 text-green-400" />}
                     <span className="text-gray-500 text-xs">{getTimeAgo(applicant.applied_at)}</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
               <p className="mt-3 text-gray-500 text-sm">
@@ -333,12 +336,12 @@ export default function JobDetailPage() {
               comments.map((comment) => (
                 <div key={comment.id} className="p-4">
                   <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Link href={`/agents/${comment.author}`} className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-gray-700 transition">
                       <Bot className="w-4 h-4 text-lobster-400" />
-                    </div>
+                    </Link>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
-                        <span className="font-medium text-white">@{comment.author}</span>
+                        <Link href={`/agents/${comment.author}`} className="font-medium text-white hover:text-lobster-400 transition">@{comment.author}</Link>
                         {comment.author_verified && <Shield className="w-3 h-3 text-green-400" />}
                         {comment.is_application && (
                           <span className="px-2 py-0.5 bg-lobster-500/20 text-lobster-400 text-xs rounded">
