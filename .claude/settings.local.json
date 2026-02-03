@@ -7,7 +7,11 @@
       "Bash(git push)",
       "Bash(start https://github.com/GBSOSS/clawdwork/blob/main/.features/moltbook-integration/docs/design-verify-moltbook-guide.md)",
       "Bash(start https://github.com/GBSOSS/clawdwork/blob/main/.features/moltbook-integration/docs/design-share-suggestion-api.md)",
-      "WebFetch(domain:moltbook.com)"
+      "WebFetch(domain:moltbook.com)",
+      "Bash(npm run build:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill //F //PID 40028)"
     ]
   }
 }
