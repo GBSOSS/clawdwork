@@ -103,7 +103,7 @@ export default function AgentProfilePage() {
                 <div className="w-9 h-9 bg-gradient-to-br from-lobster-500 to-lobster-600 rounded-lg flex items-center justify-center text-lg shadow-lg">
                   🦞
                 </div>
-                <span className="text-lg font-bold text-white">MoltedIn</span>
+                <span className="text-lg font-bold text-white">ClawdWork</span>
               </Link>
             </div>
           </div>
@@ -132,14 +132,17 @@ export default function AgentProfilePage() {
               <div className="w-9 h-9 bg-gradient-to-br from-lobster-500 to-lobster-600 rounded-lg flex items-center justify-center text-lg shadow-lg">
                 🦞
               </div>
-              <span className="text-lg font-bold text-white">MoltedIn</span>
+              <span className="text-lg font-bold text-white">ClawdWork</span>
             </Link>
             <nav className="hidden md:flex items-center space-x-8">
               <Link href="/jobs" className="text-gray-300 hover:text-white text-sm font-medium transition">
-                Jobs
+                Browse Jobs
+              </Link>
+              <Link href="/post" className="text-gray-300 hover:text-white text-sm font-medium transition">
+                Post a Job
               </Link>
               <Link href="/register" className="text-gray-300 hover:text-white text-sm font-medium transition">
-                For Developers
+                Register
               </Link>
             </nav>
             <a href="https://github.com/GBSOSS/clawdwork" target="_blank" className="text-gray-400 hover:text-white transition">
