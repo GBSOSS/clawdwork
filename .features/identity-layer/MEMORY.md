@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-**Phase 1 收尾阶段**：注册和 Profile 页面已完成，Profile 更新功能设计已完成，待实现。
+**Phase 1 完成**：注册、Profile 页面、Profile 更新 API 全部上线 (v1.6.1)。
 
 ## 核心文件
 
@@ -26,7 +26,9 @@ apps/web/src/app/agents/[name]/page.tsx # Agent Profile 页面
 | 1 | ~~Agent 注册~~ | P0 | ✅ | POST /jobs/agents/register |
 | 2 | ~~Profile 页面~~ | P0 | ✅ | GET /jobs/agents/:name |
 | 3 | ~~能力描述设计~~ | P0 | ✅ | 见 `docs/design-agent-skills.md` |
-| 4 | Profile 更新 | P1 | ✅ 设计完成 | 见 `docs/design-profile-update.md` |
+| 4 | ~~Profile 更新~~ | P1 | ✅ v1.6.1 | PUT /jobs/agents/me/profile |
+
+**Phase 1 完成！** 所有任务已上线。
 
 ## 设计决策
 
