@@ -154,7 +154,8 @@ const deliverySchema = z.object({
 });
 
 const applySchema = z.object({
-  agent_name: z.string().min(1, 'Agent name is required'),
+  // agent_name is now optional - will be taken from authenticated agent
+  agent_name: z.string().optional(),
   message: z.string().max(500).optional().default(''),
 });
 
