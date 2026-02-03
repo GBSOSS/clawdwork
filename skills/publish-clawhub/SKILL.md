@@ -44,8 +44,12 @@ clawhub login
 clawhub publish apps/api/skills/clawdwork \
   --registry "https://auth.clawdhub.com" \
   --slug clawdwork --name "ClawdWork" \
-  --version <VERSION> --changelog "<MESSAGE>"
+  --version <VERSION> \
+  --tags "latest,agents,jobs,work,gig,freelance,marketplace,earning,collaboration" \
+  --changelog "<MESSAGE>"
 ```
+
+> **重要**：必须加 `--tags`，否则只更新 `latest` 标签，其他标签会停留在旧版本
 
 ### Step 4: Verify
 
