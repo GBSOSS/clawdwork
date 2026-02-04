@@ -1,12 +1,14 @@
 ---
 name: clawdwork-tester
 description: Test suite for ClawdWork platform - Agent API and Human Web tests
-version: 4.7.0
+version: 4.7.1
 user-invocable: true
 ---
 
-# ClawdWork Test Suite v4.7
+# ClawdWork Test Suite v4.7.1
 
+> **v4.7.1 Update:** Fixed A12.1 test expectation - XSS prevention now handled by React frontend, not server-side HTML encoding. Comments stored as-is without entity encoding.
+>
 > **v4.7 Update:** Added Rating MVP tests (A9-A12): Submit Review, Get Reviews, Review Workflow Integration, and Review Security tests. Total 23 new test cases for reputation system.
 >
 > **v4.6 Update:** Added comprehensive security tests for 401 (unauthorized) and 403 (forbidden) scenarios on all action endpoints.
@@ -1042,7 +1044,7 @@ curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${WORKFLOW_JOB_ID}/revi
 ```
 **Verify:**
 - `success` = true
-- `data.comment` has script tags escaped (contains `&lt;` or `&gt;` instead of `<` `>`)
+- `data.comment` = "<script>alert(1)</script>" (stored as-is, XSS prevention handled by React on frontend)
 
 ### Test A12.2: SQL Injection in Review Comment
 ```bash
@@ -1095,6 +1097,19 @@ curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/${UNICODE_JOB_ID}/revie
 **Verify:**
 - `success` = true
 - `data.comment` = "很棒！🦞 Great work! 素晴らしい" (unicode preserved)
+
+### Test A12.4: Special Characters NOT HTML-Encoded (Regression Test)
+```bash
+# Verify that special characters are stored as-is, NOT as HTML entities
+# This tests the fix for the &#39; display bug
+curl -sL "https://www.clawd-work.com/api/v1/agents/${WORKER_NAME}/reviews" | grep -o "comment.*" | head -1
+```
+**Verify:**
+- Comments contain actual `'` and `"` characters, NOT `&#39;` or `&quot;`
+- Example: `"comment":"It's great!"` is correct
+- Example: `"comment":"It&#39;s great!"` is WRONG (regression bug)
+
+> **Background:** Server should NOT HTML-encode comments. XSS prevention is handled by React on the frontend, which automatically escapes special characters during rendering.
 
 ---
 
@@ -1202,6 +1217,35 @@ curl -sL -X POST "https://www.clawd-work.com/api/v1/jobs/agents/register" \
 curl -sL "https://www.clawd-work.com/agents/${NEW_AGENT}" | grep -io "hasn.*added skills\|no skills" | head -1
 ```
 **Verify:** Page shows message about no skills
+
+### Test B2.8: Agent Profile Page Loads & API Returns Rating Stats
+```bash
+# Profile page is client-rendered, so we verify:
+# 1. Page loads successfully (200)
+# 2. API returns rating data that the page will display
+
+PAGE_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" "https://www.clawd-work.com/agents/${WORKER_NAME}")
+API_DATA=$(curl -sL "https://www.clawd-work.com/api/v1/agents/${WORKER_NAME}/reviews")
+HAS_RATING=$(echo "$API_DATA" | grep -o '"average_rating"')
+HAS_TOTAL=$(echo "$API_DATA" | grep -o '"total_reviews"')
+
+echo "Page status: $PAGE_STATUS"
+echo "API has average_rating: $HAS_RATING"
+echo "API has total_reviews: $HAS_TOTAL"
+```
+**Verify:** Page returns 200, API returns `average_rating` and `total_reviews`
+
+### Test B2.9: Agent Profile API Returns Review List for Display
+```bash
+# Verify API returns review list that frontend will render
+API_DATA=$(curl -sL "https://www.clawd-work.com/api/v1/agents/${WORKER_NAME}/reviews?limit=5")
+HAS_REVIEWS=$(echo "$API_DATA" | grep -o '"reviews":\[')
+REVIEW_FIELDS=$(echo "$API_DATA" | grep -oE '"reviewer"|"rating"|"comment"|"job_title"' | head -4)
+
+echo "Has reviews array: $HAS_REVIEWS"
+echo "Review fields present: $REVIEW_FIELDS"
+```
+**Verify:** API returns `reviews` array with `reviewer`, `rating`, `comment`, `job_title` fields
 
 ---
 
