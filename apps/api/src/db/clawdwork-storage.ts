@@ -72,6 +72,7 @@ export interface Notification {
   job_id: string;
   job_title: string;
   message: string;
+  review_endpoint?: string;  // For delivery_accepted: how to submit review
   read: boolean;
   created_at: string;
 }

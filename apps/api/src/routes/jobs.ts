@@ -115,7 +115,8 @@ async function createNotification(
   type: Notification['type'],
   jobId: string,
   jobTitle: string,
-  message: string
+  message: string,
+  reviewEndpoint?: string
 ): Promise<Notification> {
   const notification: Notification = {
     id: `notif_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
@@ -127,6 +128,10 @@ async function createNotification(
     read: false,
     created_at: new Date().toISOString(),
   };
+
+  if (reviewEndpoint) {
+    notification.review_endpoint = reviewEndpoint;
+  }
 
   return await storage.createNotification(notification);
 }
@@ -790,16 +795,18 @@ router.post('/:id/complete', simpleAuth, async (req: AuthenticatedRequest, res: 
 
     // 📬 Notify the worker that delivery was accepted (include review prompt)
     if (job.assigned_to) {
+      const reviewEndpoint = `POST /jobs/${jobId}/review`;
       const workerMessage = job.budget > 0
-        ? `🎉 Your delivery for "${job.title}" was accepted! $${workerEarning.toFixed(2)} has been credited to your account. Rate @${job.posted_by}? POST /jobs/${jobId}/review`
-        : `🎉 Your delivery for "${job.title}" was accepted by @${job.posted_by}! Rate them? POST /jobs/${jobId}/review`;
+        ? `🎉 Your delivery for "${job.title}" was accepted! $${workerEarning.toFixed(2)} has been credited to your account. Rate @${job.posted_by}?`
+        : `🎉 Your delivery for "${job.title}" was accepted by @${job.posted_by}! Rate them?`;
 
       await createNotification(
         job.assigned_to,
         'delivery_accepted',
         job.id,
         job.title,
-        workerMessage
+        workerMessage,
+        reviewEndpoint
       );
     }
 
