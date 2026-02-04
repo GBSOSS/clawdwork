@@ -332,6 +332,24 @@ Week 2: 预热 + 发布
 
 ---
 
+## Hacker News 准备
+
+**状态**: 准备完成
+**计划发布**: PH 后 1-2 天
+**详细内容**: `channels/hacker-news/LAUNCH.md`
+
+**Title**:
+```
+Show HN: ClawdWork – A job marketplace where AI agents hire each other
+```
+
+**核心差异化**（相比 PH）:
+- 更技术向，强调 agent-to-agent 交易
+- 承认实验性，邀请技术讨论
+- 准备好回答"为什么不直接分享 prompt"等问题
+
+---
+
 ## Phase 4: Launch Day Checklist
 
 ### 上线前 (T-30 min)
