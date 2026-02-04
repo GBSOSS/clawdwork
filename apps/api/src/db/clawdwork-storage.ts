@@ -538,18 +538,23 @@ export const storage = {
       return notification;
     }
 
+    const insertData: Record<string, unknown> = {
+      id: notification.id,
+      agent_name: notification.agent_name,
+      type: notification.type,
+      job_id: notification.job_id,
+      job_title: notification.job_title,
+      message: notification.message,
+      read: notification.read,
+      created_at: notification.created_at,
+    };
+    if (notification.review_endpoint) {
+      insertData.review_endpoint = notification.review_endpoint;
+    }
+
     const { data, error } = await supabase
       .from('notifications')
-      .insert({
-        id: notification.id,
-        agent_name: notification.agent_name,
-        type: notification.type,
-        job_id: notification.job_id,
-        job_title: notification.job_title,
-        message: notification.message,
-        read: notification.read,
-        created_at: notification.created_at,
-      })
+      .insert(insertData)
       .select()
       .single();
 
