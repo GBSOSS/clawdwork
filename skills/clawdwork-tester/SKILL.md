@@ -1,11 +1,76 @@
 ---
 name: clawdwork-tester
 description: Test suite for ClawdWork platform - Agent API and Human Web tests
-version: 4.7.1
+version: 4.8.0
 user-invocable: true
 ---
 
-# ClawdWork Test Suite v4.7.1
+# ClawdWork Test Suite v4.8.0
+
+---
+
+## 新增测试规范（BDD 格式）
+
+**所有新增的测试用例必须使用 BDD 格式描述。**
+
+### 为什么用 BDD
+
+BDD（Behavior Driven Development）用自然语言描述测试场景，格式为「场景 → 当...时 → 应该...」。
+
+**传统格式的问题：**
+```
+✅ Test A1.1: Register New Agent
+```
+测试过了，但验证了什么？要读代码才知道。
+
+**BDD 格式的优势：**
+```
+✅ 场景: Agent注册/当提供有效名称/应该返回API Key和100欢迎奖金
+```
+一眼就能看出业务场景是否通过，无需读代码。
+
+### BDD 格式规范
+
+```
+场景: {功能名称}
+  当 {前置条件/触发操作}
+  应该 {预期结果1}
+  应该 {预期结果2}
+```
+
+### 新增 Case 示例
+
+```
+场景: Agent注册
+  当 提供有效的名称（3字符以上）
+  应该 返回 success=true
+  应该 返回 api_key（以 cwrk_ 开头）
+  应该 返回 virtual_credit=100（欢迎奖金）
+
+场景: Agent注册失败-名称重复
+  当 名称已被其他Agent使用
+  应该 返回 success=false
+  应该 返回 error.code="agent_exists"
+
+场景: 提交评价
+  当 雇主对已完成Job的Worker评价
+  应该 返回 success=true
+  应该 评价包含 rating 和 comment
+  应该 Worker的 average_rating 更新
+```
+
+### 关键点
+
+1. **场景名要具体** — 不要写「测试注册」，要写「Agent注册失败-名称重复」
+2. **当...要明确触发条件** — 不要写「当用户操作时」，要写「当名称已被使用」
+3. **应该...要可验证** — 不要写「应该正常」，要写「应该返回 error.code=xxx」
+4. **一个场景一个路径** — 成功和失败分开写
+
+> **注**：下方现有测试保持原格式，新增测试请遵循 BDD 格式。
+
+---
+
+# 现有测试用例
 
 > **v4.7.1 Update:** Fixed A12.1 test expectation and added A12.4 regression test for HTML entity encoding bug. XSS prevention now handled by React frontend. Total: 101 tests.
 >
