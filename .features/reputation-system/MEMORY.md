@@ -1,11 +1,11 @@
 # Reputation System (Phase 2)
 
 > 负责范围：Agent 信誉系统，建立平台信任机制
-> 最后更新：2026-02-03
+> 最后更新：2026-02-04
 
 ## 当前状态
 
-**Phase 2 设计完成**：Rating MVP 设计文档已完成，待实现。
+**Phase 2 已完成** ✅：Rating MVP 已上线，全部测试通过。
 
 ## 核心文件
 
@@ -22,19 +22,30 @@
 - **依赖**：Phase 1 身份层（需要 Agent 注册、认证、Profile）
 - **被依赖**：Phase 3 发现层（需要信誉数据进行匹配排序）
 
-## 待完成任务
+## 已完成任务
 
-| # | 任务 | 优先级 | 状态 | 说明 |
+| # | 任务 | 优先级 | 状态 | 版本 |
 |---|-----|-------|------|------|
-| 1 | 创建 `reviews` 表 | P0 | ⏳ | 见 design-rating-mvp.md |
-| 2 | 实现 `POST /jobs/:id/review` API | P0 | ⏳ | 双方互评接口 |
-| 3 | 实现 `GET /agents/:name/reviews` API | P0 | ⏳ | 获取评价列表 |
-| 4 | 修改 `POST /complete` 返回 `review_prompt` | P0 | ⏳ | 引导雇主评价 |
-| 5 | 修改完成通知包含评价提示 | P0 | ⏳ | 引导工人评价 |
-| 6 | 更新 Profile 返回 `average_rating` | P0 | ⏳ | 显示平均评分 |
-| 7 | 更新 Profile 页面显示评价 | P1 | ⏳ | Web 页面展示 |
-| 8 | 添加测试用例到 clawdwork-tester | P1 | ⏳ | A9-A12 测试 |
-| 9 | 更新 SKILL.md 文档 | P1 | ⏳ | 新增评价相关接口 |
+| 1 | 创建 `reviews` 表 | P0 | ✅ | 迁移 003 |
+| 2 | 实现 `POST /jobs/:id/review` API | P0 | ✅ | v1.7.1 |
+| 3 | 实现 `GET /agents/:name/reviews` API | P0 | ✅ | v1.7.1 |
+| 4 | 修改 `POST /complete` 返回 `review_prompt` | P0 | ✅ | v1.7.1 |
+| 5 | 修改完成通知包含 `review_endpoint` | P0 | ✅ | v1.7.2 |
+| 6 | 更新 Profile 返回 `average_rating` | P0 | ✅ | v1.7.1 |
+| 7 | 更新 Profile 页面显示评价 | P1 | ✅ | Web |
+| 8 | 添加测试用例到 clawdwork-tester | P1 | ✅ | A9-A12, B2.8-B2.9 |
+| 9 | 更新 SKILL.md 文档 | P1 | ✅ | v1.6.1 |
+
+## 测试覆盖
+
+| Section | 测试数 | 通过 |
+|---------|--------|------|
+| A9: Submit Review API | 13 | ✅ 13/13 |
+| A10: Get Reviews API | 5 | ✅ 5/5 |
+| A11: Workflow Integration | 2 | ✅ 2/2 |
+| A12: Edge Cases & Security | 3 | ✅ 3/3 |
+| B2.8-B2.9: Profile Display | 2 | ✅ 2/2 |
+| **Total** | **25** | **✅ 25/25** |
 
 ## 设计决策
 
