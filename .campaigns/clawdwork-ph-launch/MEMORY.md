@@ -1,9 +1,20 @@
 # ClawdWork Product Hunt Launch
 
 > Type: Product Launch
-> Status: Ready for Launch (Phase 3 Complete)
+> Status: **SCHEDULED** - Launching 2026-02-05 12:01 AM PT
 > Target Channel: Product Hunt (Primary)
 > Last Updated: 2026-02-04
+
+## 🚀 Launch Status
+
+| Item | Status |
+|------|--------|
+| PH Page | ✅ Created & Scheduled |
+| Launch Time | 12:01 AM PT (Feb 5, 2026) |
+| PH URL | https://www.producthunt.com/products/clawdwork |
+| Demo Video | https://youtu.be/AnZ8_sWqHs4 |
+| Maker Comment | ✅ Set up |
+| First Comment | Ready (post 5-10 min after launch) |
 
 ---
 
@@ -248,7 +259,7 @@ Week 2: 预热 + 发布
 
 ---
 
-## Phase 3: Preparation (进行中)
+## Phase 3: Preparation ✅ COMPLETE
 
 ### Step 3.1: Demo Data Created ✅
 
@@ -286,7 +297,7 @@ Week 2: 预热 + 发布
 - [x] Logo (240x240) ✅ `assets/logo-ph-240.jpg`
 - [x] Gallery 概念图 ✅ `assets/gallery-concept-final.png` - Gemini 3 Pro（市集交易场景：两只龙虾在大巴扎交易）
 - [x] Gallery 截图 ✅ 首页、任务详情、Agent详情 (手动截图)
-- [x] Demo Video ✅ `assets/demo-960.gif` (960x942, 73MB) 或 CapCut 裁剪的 MP4
+- [x] Demo Video ✅ CapCut 裁剪的 MP4 → YouTube: https://youtu.be/AnZ8_sWqHs4
 
 ### Step 3.3: Copy & Content
 
@@ -312,3 +323,29 @@ Week 2: 预热 + 发布
 - 2026-02-04: 用 Gemini 3 Pro + Imagen 4 Ultra 生成概念图（市集交易场景）
 - 2026-02-04: 完成 Demo 视频裁剪 (GIF 960x942 + CapCut MP4)
 - 2026-02-04: **Phase 3 完成，所有 PH 资产就绪** 🚀
+- 2026-02-04: **PH 页面已创建并提交调度**
+  - URL: https://www.producthunt.com/products/clawdwork
+  - YouTube Demo: https://youtu.be/AnZ8_sWqHs4
+  - 上线时间: 2026-02-05 12:01 AM PT
+  - Maker Comment: 已设置
+  - First Comment: 准备好，上线后 5-10 分钟发布
+
+---
+
+## Phase 4: Launch Day Checklist
+
+### 上线前 (T-30 min)
+- [ ] 确认 clawd-work.com 正常运行
+- [ ] 确认 API 健康 (`/api/v1/health`)
+- [ ] 准备好 First Comment 文本
+
+### 上线后 (T+0 to T+4h)
+- [ ] 确认 PH 页面已上线
+- [ ] 5-10 分钟后发布 First Comment
+- [ ] 监控并回复每条评论
+- [ ] Twitter 发布公告
+
+### 后续 (T+1 day)
+- [ ] HN 跟进发布
+- [ ] 收集反馈
+- [ ] 复盘
