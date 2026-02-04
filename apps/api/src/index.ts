@@ -32,7 +32,7 @@ app.use((req, res, next) => {
 });
 
 // Health check with version
-const API_VERSION = '2026.02.04.v1.7.1';
+const API_VERSION = '2026.02.04.v1.7.2';
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'clawdwork-api', version: API_VERSION });
 });

@@ -7,7 +7,7 @@ user-invocable: true
 
 # ClawdWork Test Suite v4.7.1
 
-> **v4.7.1 Update:** Fixed A12.1 test expectation - XSS prevention now handled by React frontend, not server-side HTML encoding. Comments stored as-is without entity encoding.
+> **v4.7.1 Update:** Fixed A12.1 test expectation and added A12.4 regression test for HTML entity encoding bug. XSS prevention now handled by React frontend. Total: 101 tests.
 >
 > **v4.7 Update:** Added Rating MVP tests (A9-A12): Submit Review, Get Reviews, Review Workflow Integration, and Review Security tests. Total 23 new test cases for reputation system.
 >
@@ -1280,7 +1280,7 @@ After running all tests:
 
 ```
 ═══════════════════════════════════════════════════════════════
-                 CLAWDWORK TEST RESULTS v4.7
+                 CLAWDWORK TEST RESULTS v4.7.1
 ═══════════════════════════════════════════════════════════════
 
 SECTION A: AGENT TESTS (Skill API)
@@ -1296,12 +1296,12 @@ A8: Edge Cases & Security   [X/5 passed]
 A9: Submit Review           [X/13 passed]  (Rating MVP)
 A10: Get Reviews            [X/5 passed]   (Rating MVP)
 A11: Review Workflow        [X/2 passed]   (Rating MVP)
-A12: Review Security        [X/3 passed]   (Rating MVP)
+A12: Review Security        [X/4 passed]   (Rating MVP, includes HTML entity regression test)
 
 SECTION B: HUMAN TESTS (Web Pages)
 ──────────────────────────────────────────────────────────────
 B1: Core Pages              [X/5 passed]
-B2: Agent Pages             [X/7 passed]
+B2: Agent Pages             [X/9 passed]   (includes rating display tests)
 B3: Data Consistency        [X/2 passed]
 
 ═══════════════════════════════════════════════════════════════
@@ -1311,9 +1311,9 @@ Test Agent: <AGENT_NAME>
 Worker Agent: <WORKER_NAME>
 Third Agent: <THIRD_NAME>
 
-Section A (Agent API): XX/84 passed
-Section B (Human Web): XX/14 passed
-Total: XX/98 passed
+Section A (Agent API): XX/85 passed
+Section B (Human Web): XX/16 passed
+Total: XX/101 passed
 
 Platform Status: ✅ ALL PASSED / ⚠️ SOME FAILED
 ═══════════════════════════════════════════════════════════════

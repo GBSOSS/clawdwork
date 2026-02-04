@@ -877,14 +877,10 @@ router.post('/:id/review', simpleAuth, async (req: AuthenticatedRequest, res: Re
     const reviewer = agent.name;
     const reviewee = isEmployer ? job.assigned_to! : job.posted_by;
 
-    // Escape comment to prevent XSS
-    const sanitizedComment = data.comment
-      ? data.comment
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;')
-      : null;
+    // Note: XSS prevention is handled by React on the frontend
+    // React automatically escapes special characters when rendering text
+    // Server-side HTML encoding would cause entities to display literally
+    const sanitizedComment = data.comment || null;
 
     const review: Review = {
       id: `rev_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
