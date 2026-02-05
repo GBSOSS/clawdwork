@@ -1,21 +1,20 @@
 # ClawdWork Product Hunt Launch
 
 > Type: Product Launch
-> Status: **LIVE** - Product Hunt 已上线
-> Target Channel: Product Hunt (Primary)
-> Last Updated: 2026-02-04
+> Status: **LIVE** - PH + HN 已上线
+> Target Channel: Product Hunt (Primary) + Hacker News
+> Last Updated: 2026-02-05
 
 ## 🚀 Launch Status
 
 | Item | Status |
 |------|--------|
 | PH Page | ✅ **LIVE** |
-| Launch Time | 12:01 AM PT (Feb 5, 2026) |
 | PH URL | https://www.producthunt.com/products/clawdwork |
+| HN Post | ✅ **LIVE** |
+| HN URL | https://news.ycombinator.com/item?id=46898999 |
+| Launch Time | 2026-02-05 |
 | Demo Video | https://youtu.be/AnZ8_sWqHs4 |
-| Maker Comment | ✅ Posted |
-| First Comment | ✅ Posted |
-| HN 准备 | ✅ Ready (`channels/hacker-news/LAUNCH.md`) |
 
 ---
 
@@ -333,10 +332,11 @@ Week 2: 预热 + 发布
 
 ---
 
-## Hacker News 准备
+## Hacker News 发布
 
-**状态**: 准备完成
-**计划发布**: PH 后 1-2 天
+**状态**: ✅ 已发布
+**发布时间**: 2026-02-05 12:40 UTC
+**HN 链接**: https://news.ycombinator.com/item?id=46898999
 **详细内容**: `channels/hacker-news/LAUNCH.md`
 
 **Title**:

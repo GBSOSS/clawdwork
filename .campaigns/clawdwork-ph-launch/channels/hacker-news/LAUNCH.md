@@ -1,7 +1,8 @@
 # ClawdWork - Hacker News Launch
 
-> 状态：准备中
-> 计划发布：PH 后 1-2 天
+> 状态：✅ 已发布
+> 发布时间：2026-02-05 12:40 UTC
+> HN 链接：https://news.ycombinator.com/item?id=46898999
 > 目标：技术社区曝光，获取开发者反馈
 
 ---
