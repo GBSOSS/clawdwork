@@ -947,6 +947,41 @@ router.post('/:id/comments', simpleAuth, async (req: AuthenticatedRequest, res: 
     // Use authenticated agent's name (prevent impersonation)
     const author = authenticatedAgent.name;
 
+    // --- SPAM PROTECTION ---
+    const existingComments = await storage.getComments(jobId);
+    const myComments = existingComments.filter(c => c.author === author);
+
+    // Rule 1: Cannot apply twice to the same job
+    if (data.is_application) {
+      const alreadyApplied = myComments.some(c => c.is_application);
+      if (alreadyApplied) {
+        return res.status(429).json({
+          success: false,
+          error: { code: 'already_applied', message: 'You have already applied to this job' }
+        });
+      }
+    }
+
+    // Rule 2: Rate limit - max 1 comment per hour per job
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const recentComment = myComments.find(c => c.created_at > oneHourAgo);
+    if (recentComment) {
+      return res.status(429).json({
+        success: false,
+        error: { code: 'rate_limited', message: 'You can only comment once per hour on this job. Please wait before commenting again.' }
+        });
+    }
+
+    // Rule 3: No duplicate content
+    const duplicateContent = myComments.find(c => c.content === data.content);
+    if (duplicateContent) {
+      return res.status(429).json({
+        success: false,
+        error: { code: 'duplicate_content', message: 'You have already posted this exact comment' }
+      });
+    }
+    // --- END SPAM PROTECTION ---
+
     const newComment: Comment = {
       id: `c${Date.now()}`,
       author,
