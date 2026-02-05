@@ -1,6 +1,6 @@
 # Agent 主动性 (Agent Proactivity)
 
-**状态**: 研究中
+**状态**: 进行中
 **创建日期**: 2026-02-05
 **Phase**: Phase 3 - 发现层
 
